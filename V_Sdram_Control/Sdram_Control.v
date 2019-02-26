@@ -128,7 +128,7 @@ input	         [10:0]					  RD2_LENGTH;				      //Read Length
 input						              	RD2_LOAD;				        //Read FIFO Clear
 input							              RD2_CLK;				        //Read FIFO Clock
 //	SDRAM Side
-output        [11:0]            SA;                     //SDRAM address output
+output        [12:0]            SA;                     //SDRAM address output
 output         [1:0]            BA;                     //SDRAM bank address
 output         [1:0]            CS_N;                   //SDRAM Chip Selects
 output                          CKE;                    //SDRAM clock enable

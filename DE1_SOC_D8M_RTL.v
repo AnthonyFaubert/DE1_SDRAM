@@ -11,7 +11,7 @@
 module DE1_SOC_D8M_RTL(
 
 	//////////// ADC //////////
-	output		          		ADC_CONVST,
+	output		          		ADC_CONVST, // ADC start CONVersion, Hauck's ADC module calls this ADC_CS_N (may or may not need to be inverted, I forgot)
 	output		          		ADC_DIN,
 	input 		          		ADC_DOUT,
 	output		          		ADC_SCLK,
@@ -31,17 +31,17 @@ module DE1_SOC_D8M_RTL(
 	input 		          		CLOCK_50,
 
 	//////////// SDRAM //////////
-	output		    [12:0]		DRAM_ADDR,
-	output		    [1:0]		DRAM_BA,
-	output		          		DRAM_CAS_N,
-	output		          		DRAM_CKE,
-	output		          		DRAM_CLK,
-	output		          		DRAM_CS_N,
-	inout 		    [15:0]		DRAM_DQ,
-	output		          		DRAM_LDQM,
-	output		          		DRAM_RAS_N,
-	output		          		DRAM_UDQM,
-	output		          		DRAM_WE_N,
+	output		    [12:0]		DRAM_ADDR, // row/column address, depending on command specified by row/column strobes
+	output		    [1:0]		DRAM_BA, // bank address. the SDRAM is split into 4 equal banks
+	output		          		DRAM_CAS_N, // ColumnAddressStrobe, active-low
+	output		          		DRAM_CKE, // ClocKEnable
+	output		          		DRAM_CLK, // CLocK
+	output		          		DRAM_CS_N, // ChipSelect, active-low
+	inout 		    [15:0]		DRAM_DQ, // Data input/output port. Each data word is 16 bits = 2 bytes
+	output		          		DRAM_LDQM, // Low DQ (data port) Mask, can be used to ignore the lower byte of the data port (DQ[7:0]) during a write operation
+	output		          		DRAM_RAS_N, // RowAddressStrobe, active-low
+	output		          		DRAM_UDQM, // Upper DQ Mask, same as LDQM, but for the upper byte (DQ[15:8]) instead of the lower one
+	output		          		DRAM_WE_N, // WriteEnable, active-low
 
 	//////////// I2C for Audio and Video-In //////////
 	output		          		FPGA_I2C_SCLK,
@@ -139,7 +139,7 @@ module DE1_SOC_D8M_RTL(
 					.oVGA_HS(post_VGA_HS), .oVGA_VS(post_VGA_VS),
 					.oVGA_SYNC_N(post_VGA_SYNC_N), .oVGA_BLANK_N(post_VGA_BLANK_N),
 					.HEX0(HEX0), .HEX1(HEX1), .HEX2(HEX2), .HEX3(HEX3), .HEX4(HEX4), .HEX5(HEX5),
-					.LEDR(KEDR), .KEY(KEY[1:0]), .SW(SW[8:0]));
+					.LEDR(LEDR), .KEY(KEY[1:0]), .SW(SW[8:0]));
 					
 	assign VGA_BLANK_N = post_VGA_BLANK_N;
 	assign VGA_B = post_VGA_B;
@@ -200,8 +200,8 @@ assign LUT_MIPI_PIXEL_VS=MIPI_PIXEL_VS;
 assign LUT_MIPI_PIXEL_D =MIPI_PIXEL_D ;
 
 //------UART OFF --
-assign UART_RTS =0; 
-assign UART_TXD =0; 
+//assign UART_RTS =0; 
+//assign UART_TXD =0; 
 //------HEX OFF --
 //assign HEX2           = 7'h7F;
 //assign HEX3           = 7'h7F;
@@ -295,7 +295,7 @@ Sdram_Control	   u7	(	//	HOST Side
 							.CAS_N       ( DRAM_CAS_N ),
 							.WE_N        ( DRAM_WE_N ),
 							.DQ          ( DRAM_DQ ),
-							.DQM         ( DRAM_DQM  )
+							.DQM         () // ( DRAM_DQM  )
 						   );	 	 
 	 
 //------ CMOS CCD_DATA TO RGB_DATA -- 
@@ -345,7 +345,7 @@ FOCUS_ADJ adl(
                       .oG            ( pre_VGA_G ) , 
                       .oB            ( pre_VGA_B ) , 
                       
-                      .READY         ( READY ),
+                      .READY         (), // ( READY ),
                       .SCL           ( CAMERA_I2C_SCL_AF ), 
                       .SDA           ( CAMERA_I2C_SDA )
 );

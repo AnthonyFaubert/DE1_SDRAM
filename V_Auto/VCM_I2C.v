@@ -283,7 +283,7 @@ I2C_READ_DATA rd( //
 	.ACK_OK(),
 	.CNT   (),
 	.BYTE  ()  	,
-	.END_BYTE  (1) ,//read 2 byte  	
+	.END_BYTE  (1) //read 2 byte  	
 );
 
 

@@ -50,13 +50,15 @@ AUTO_SYNC_MODIFY  RE(
        .M_HS     ( HS_NS)
 ) ; 
 
+   wire      LINE; // added by Tony
+   
 LCD_COUNTER  cv1(
        .CLK      ( VIDEO_CLK ),
        .VS       ( VS_NS), 
        .HS       ( HS_NS), 
 		 .DE       ( VIDEO_DE ) , 
-       .V_CNT    ( V_CNT) ,
-       .H_CNT    ( H_CNT) ,
+       .V_CNT    () , // (V_CNT)
+       .H_CNT    () , // (H_CNT)
        .LINE     ( LINE ),
        .ACTIV_C  ( ACTIV_C ),
        .ACTIV_V  ( ACTIV_V )
