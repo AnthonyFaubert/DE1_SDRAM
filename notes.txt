@@ -42,10 +42,10 @@ wait tRCD
 WRITE
 WRITE
 WRITE
-READ
-wait 
+READ // NOTE: despite there being a clock cycle immediately after the first read with SDRAM output in high-Z, writing at that time will do bad things to the last write before it. (found out by experiment)
+wait DQM=2'b11
 WRITE
-WRITE
+WRITE // NOTE: there must be 2 clocks (tDPL) after the last write to a bank before precharge can occur. Always end a bank access with 2 reads or NOOPS after the last write before then doing the tRP=2 cycle wait to the next active command
 READA
 NOOP
 NOOP // see p36

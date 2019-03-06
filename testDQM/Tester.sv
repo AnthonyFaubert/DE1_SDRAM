@@ -76,9 +76,9 @@ module Tester (
 
    enum {WAIT,
 	 RESET, BOOTA, BOOTB, BOOTC,
-	 OPEN1, WRITE1, WRITE2, READ1, READ2, WRITE3,
+	 OPEN1, WRITE1, WRITE2, READ1, WRITE_INTERLEAVED, READ2, WRITE3,
 	 OPEN2, CLOSE2,
-	 OPEN3, READ31, READ32, READ33,
+	 OPEN3, READ31, READ32, READ33, READ34,
 	 DONE} ps, ns, waitRet, nwaitRet;
    logic [$clog2(10000)-1:0] waitCtr, nwaitCtr;
    logic [13:0] 	     seqCtr, nseqCtr;
@@ -154,7 +154,7 @@ module Tester (
 	      addr[9:0] = 10'd100;
 	      OE = 1;
 	      DQM = 2'b00; // enable both bytes
-	      DQ = 16'd1234;
+	      DQ = 16'hDEAD;
 	      ns = WRITE2;
 	   end
 	   WRITE2: begin
@@ -162,13 +162,21 @@ module Tester (
 	      addr[9:0] = 10'd101;
 	      OE = 1;
 	      DQM = 2'b00; // enable both bytes
-	      DQ = 16'd2345;
+	      DQ = 16'hBEEF;
 	      ns = READ1;
 	   end
 	   READ1: begin
 	      {RAS, CAS, WE, addr[10]} = 4'b0100; // read
 	      addr[9:0] = 10'd100;
 	      DQM = 2'b00; // enable both bytes
+	      ns = WRITE_INTERLEAVED;
+	   end
+	   WRITE_INTERLEAVED: begin // in theory, should be able to get one write in before the DQM from the read kicks in
+	      {RAS, CAS, WE, addr[10]} = 4'b0110; // write
+	      addr[9:0] = 10'd110;
+	      OE = 1;
+	      DQM = 2'b00; // enable both bytes
+	      DQ = 16'hF00D;
 	      ns = READ2;
 	   end
 	   READ2: begin
@@ -186,9 +194,9 @@ module Tester (
 	      addr[9:0] = 10'd99;
 	      OE = 1;
 	      DQM = 2'b00; // enable both bytes
-	      DQ = 16'd4444;
+	      DQ = 16'hFACE;
 
-	      nwaitCtr = 2; // tRP=2
+	      nwaitCtr = 4; // tRP=2 + tDPL=2 (tDPL because there's a "writeback" period)
 	      nwaitRet = OPEN2;
 	      ns = WAIT;
 	   end
@@ -198,7 +206,7 @@ module Tester (
 	      bank = 2'd1;
 	      addr = 13'd2000;
 	      nwaitRet = CLOSE2;
-	      nwaitCtr = 8; // not sure exactly how long, this should be tRAS=5, but that compute because tRC=8 != tRAS+tRP (ACT->ACT != ACT->PRE + PRE->ACT)
+	      nwaitCtr = 5; // tRAS=5, (tRAS + 1 (sending precharge command) + tRP = tRC) (ACT->PRE + cmdPRE + PRE->ACT = ACT->ACT)
 	      ns = WAIT;
 	   end
 	   CLOSE2: begin
@@ -231,6 +239,12 @@ module Tester (
 	      ns = READ33;
 	   end
 	   READ33: begin
+	      {RAS, CAS, WE, addr[10]} = 4'b0100; // read
+	      addr[9:0] = 10'd110;
+	      DQM = 2'b00; // enable both bytes
+	      ns = READ34;
+	   end
+	   READ34: begin
 	      {RAS, CAS, WE, addr[10]} = 4'b0101; // read with auto-precharge
 	      addr[9:0] = 10'd99;
 	      DQM = 2'b00; // enable both bytes
