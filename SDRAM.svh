@@ -1,0 +1,7 @@
+
+`ifndef __SDRAM_SVH__
+`define __SDRAM_SVH__
+
+typedef enum {NOOP, ACTIVE, READ, READA, WRITE, WRITEA, PRECHARGE_BANK, PRECHARGE_ALL, AREFRESH, SET_MODE_REG} CommandEnum;
+
+`endif
