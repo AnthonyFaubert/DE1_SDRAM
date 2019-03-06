@@ -1,0 +1,102 @@
+;; This buffer is for text that is not saved, and for Lisp evaluation.
+;; To create a file, visit it with C-x C-f and enter text in its buffer.
+
+1024 16-bit words in a row
+8192 rows
+4 banks
+= 64MiB = 32Mi words
+row address width is 13 A[12:0] (sampled during ACTIVE command)
+col addr wid is 10 A[9:0] (sampled during READ/WRITE commands)
+A10 is sampled during a PRECHARGE command to precharge all banks (high) or just the selected bank B[1:0] (low)
+
+
+
+flow: // page 8 is command descriptions, page 9 is command table, page 15 is state diagram
+idle
+ACTIVE(B[1:0], A[12:0]) // open row
+READ(A[9:0])
+WRITE(A[9:0], DQM[1:0], DQ[15:0])
+WRITEA(A[9:0], DQM[1:0], DQ[15:0], A[10]) // w/ autoprecharge
+precharge
+idle
+
+
+// info on current chip: 32Mx16 aka 1632D -7 speed grade
+// is42s16320d-7tl
+// because < 85 deg C: refresh cycle time (8192) max = 64ms
+// tRC = 60ns min
+// it can run CAS 2 @ 133MHz (15ns) or CAS 3 @ 143MHz (21ns)
+
+// selected CAS 2: (see page 28)
+// RAS latency is 4 cycles
+// CAS latency is 2 cycles
+// tRC is 8 cycles
+// tRP is 2
+// tRCD 2
+// tMRD is 2
+
+
+/* read/write command sequence
+ACTIVE
+wait tRCD
+WRITE
+WRITE
+WRITE
+READ
+wait 
+WRITE
+WRITE
+READA
+NOOP
+NOOP // see p36
+*/
+
+/* Boot sequence:
+// NOOP commands during all waiting periods 
+CKE high, DQM high
+wait 100us
+PRECHARGE(A[10]=1) // "all banks must be precharged"
+wait tRP
+at LEAST 2 of these {
+AUTO REFRESH
+wait tRC
+}
+optional {
+load ModeReg
+wait tMRD
+}
+
+// booted, do first command or whatever you want
+ACTIVE
+*/
+
+/* auto refresh
+PRECHARGE(A[10]) // end of a previous command
+wait tRP
+
+repeat (x>=1) {
+AUTO REFRESH
+wait tRC
+}
+
+ACTIVE // beginning of future command
+*/
+
+/* mode register: (p26)
+{B[1:0], A[12:10]} = '0 // reserved
+write burst mode = A[9] ? single location access : programmed burst length
+operating mode = A[8:7] = '0
+A[6:4] = CAS latency (3'd2 or 3'd3, others reserved)
+burst type = A[3] ? interleaved : sequential
+burst length = &{~A[3], A[2:0]} ? "full page" : A[2:0]
+
+good value:
+{B[1:0], A[12:0]} = {5'd0, 1'b1, 2'd0, 3'd2, 1'b0, 3'd0}
+= {5'd0, 1'b1, 5'd2, 4'd0} = 15'h00220
+X_000_0010_0010_0000
+*/
+
+/* CAS latency:
+READ
+NOOP
+NOOP
