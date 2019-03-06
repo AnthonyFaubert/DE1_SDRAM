@@ -1,13 +1,15 @@
 onerror {resume}
 quietly virtual function -install /Tester_tb -env /Tester_tb { &{/Tester_tb/DRAM_CS_N, /Tester_tb/DRAM_RAS_N, /Tester_tb/DRAM_CAS_N, /Tester_tb/DRAM_WE_N, /Tester_tb/DRAM_ADDR[10] }} command
 quietly virtual function -install /Tester_tb -env /Tester_tb { &{/Tester_tb/DRAM_UDQM, /Tester_tb/DRAM_LDQM }} DQM
+quietly virtual function -install /Tester_tb -env /Tester_tb/#INITIAL#289 { &{/Tester_tb/DRAM_ADDR[9], /Tester_tb/DRAM_ADDR[8], /Tester_tb/DRAM_ADDR[7], /Tester_tb/DRAM_ADDR[6], /Tester_tb/DRAM_ADDR[5], /Tester_tb/DRAM_ADDR[4], /Tester_tb/DRAM_ADDR[3], /Tester_tb/DRAM_ADDR[2], /Tester_tb/DRAM_ADDR[1], /Tester_tb/DRAM_ADDR[0] }} addr90
 quietly WaveActivateNextPane {} 0
 add wave -noupdate -radixshowbase 0 /Tester_tb/CLOCK_50
 add wave -noupdate -radixshowbase 0 /Tester_tb/DRAM_CLK
 add wave -noupdate -radix binary -radixshowbase 0 /Tester_tb/command
 add wave -noupdate -radix binary -radixshowbase 0 /Tester_tb/DQM
-add wave -noupdate -radix unsigned -radixshowbase 0 /Tester_tb/DRAM_DQ
+add wave -noupdate -radix hexadecimal -radixshowbase 0 /Tester_tb/DRAM_DQ
 add wave -noupdate -radix unsigned -radixshowbase 0 /Tester_tb/DRAM_BA
+add wave -noupdate -label {addr[9:0]} -radix unsigned -radixshowbase 0 /Tester_tb/addr90
 add wave -noupdate -radix unsigned -childformat {{{/Tester_tb/DRAM_ADDR[12]} -radix unsigned} {{/Tester_tb/DRAM_ADDR[11]} -radix unsigned} {{/Tester_tb/DRAM_ADDR[10]} -radix unsigned} {{/Tester_tb/DRAM_ADDR[9]} -radix unsigned} {{/Tester_tb/DRAM_ADDR[8]} -radix unsigned} {{/Tester_tb/DRAM_ADDR[7]} -radix unsigned} {{/Tester_tb/DRAM_ADDR[6]} -radix unsigned} {{/Tester_tb/DRAM_ADDR[5]} -radix unsigned} {{/Tester_tb/DRAM_ADDR[4]} -radix unsigned} {{/Tester_tb/DRAM_ADDR[3]} -radix unsigned} {{/Tester_tb/DRAM_ADDR[2]} -radix unsigned} {{/Tester_tb/DRAM_ADDR[1]} -radix unsigned} {{/Tester_tb/DRAM_ADDR[0]} -radix unsigned}} -radixshowbase 0 -subitemconfig {{/Tester_tb/DRAM_ADDR[12]} {-height 17 -radix unsigned -radixshowbase 0} {/Tester_tb/DRAM_ADDR[11]} {-height 17 -radix unsigned -radixshowbase 0} {/Tester_tb/DRAM_ADDR[10]} {-height 17 -radix unsigned -radixshowbase 0} {/Tester_tb/DRAM_ADDR[9]} {-height 17 -radix unsigned -radixshowbase 0} {/Tester_tb/DRAM_ADDR[8]} {-height 17 -radix unsigned -radixshowbase 0} {/Tester_tb/DRAM_ADDR[7]} {-height 17 -radix unsigned -radixshowbase 0} {/Tester_tb/DRAM_ADDR[6]} {-height 17 -radix unsigned -radixshowbase 0} {/Tester_tb/DRAM_ADDR[5]} {-height 17 -radix unsigned -radixshowbase 0} {/Tester_tb/DRAM_ADDR[4]} {-height 17 -radix unsigned -radixshowbase 0} {/Tester_tb/DRAM_ADDR[3]} {-height 17 -radix unsigned -radixshowbase 0} {/Tester_tb/DRAM_ADDR[2]} {-height 17 -radix unsigned -radixshowbase 0} {/Tester_tb/DRAM_ADDR[1]} {-height 17 -radix unsigned -radixshowbase 0} {/Tester_tb/DRAM_ADDR[0]} {-height 17 -radix unsigned -radixshowbase 0}} /Tester_tb/DRAM_ADDR
 add wave -noupdate -radixshowbase 0 {/Tester_tb/SW[9]}
 add wave -noupdate -radixshowbase 0 {/Tester_tb/LEDR[9]}
@@ -63,7 +65,7 @@ add wave -noupdate -radixshowbase 0 /Tester_tb/dut/DRAM_RAS_N
 add wave -noupdate -radixshowbase 0 /Tester_tb/dut/DRAM_UDQM
 add wave -noupdate -radixshowbase 0 /Tester_tb/dut/DRAM_WE_N
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {837462344 ps} 0}
+WaveRestoreCursors {{Cursor 1} {837589674 ps} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 130
 configure wave -valuecolwidth 68
@@ -79,4 +81,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {837417058 ps} {837681762 ps}
+WaveRestoreZoom {837450609 ps} {837734750 ps}

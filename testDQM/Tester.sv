@@ -76,7 +76,7 @@ module Tester (
 
    enum {WAIT,
 	 RESET, BOOTA, BOOTB, BOOTC,
-	 OPEN1, WRITE1, WRITE2, READ1, WRITE_INTERLEAVED, READ2, WRITE3,
+	 OPEN1, WRITE1, WRITE2, WRITE3, READ1, READ2, WRITE4,
 	 OPEN2, CLOSE2,
 	 OPEN3, READ31, READ32, READ33, READ34,
 	 DONE} ps, ns, waitRet, nwaitRet;
@@ -163,20 +163,20 @@ module Tester (
 	      OE = 1;
 	      DQM = 2'b00; // enable both bytes
 	      DQ = 16'hBEEF;
+	      ns = WRITE3;
+	   end
+	   WRITE3: begin // in theory, should be able to get one write in before the DQM from the read kicks in
+	      {RAS, CAS, WE, addr[10]} = 4'b0110; // write
+	      addr[9:0] = 10'd110;
+	      OE = 1;
+	      DQM = 2'b00; // enable both bytes
+	      DQ = 16'hF00D;
 	      ns = READ1;
 	   end
 	   READ1: begin
 	      {RAS, CAS, WE, addr[10]} = 4'b0100; // read
 	      addr[9:0] = 10'd100;
 	      DQM = 2'b00; // enable both bytes
-	      ns = WRITE_INTERLEAVED;
-	   end
-	   WRITE_INTERLEAVED: begin // in theory, should be able to get one write in before the DQM from the read kicks in
-	      {RAS, CAS, WE, addr[10]} = 4'b0110; // write
-	      addr[9:0] = 10'd110;
-	      OE = 1;
-	      DQM = 2'b00; // enable both bytes
-	      DQ = 16'hF00D;
 	      ns = READ2;
 	   end
 	   READ2: begin
@@ -186,10 +186,10 @@ module Tester (
 
 	      // Switch to writing by NO-OPing for 3 cycles with DQM=2'b11
 	      nwaitCtr = 3;
-	      nwaitRet = WRITE3;
+	      nwaitRet = WRITE4;
 	      ns = WAIT;
 	   end
-	   WRITE3: begin // do a final write and close
+	   WRITE4: begin // do a final write and close
 	      {RAS, CAS, WE, addr[10]} = 4'b0111; // write with auto-precharge
 	      addr[9:0] = 10'd99;
 	      OE = 1;
