@@ -1,6 +1,6 @@
 onerror {resume}
-quietly virtual function -install /Tester_tb -env /Tester_tb/#INITIAL#272 { &{/Tester_tb/DRAM_CS_N, /Tester_tb/DRAM_RAS_N, /Tester_tb/DRAM_CAS_N, /Tester_tb/DRAM_WE_N, /Tester_tb/DRAM_ADDR[10] }} command
-quietly virtual function -install /Tester_tb -env /Tester_tb/#INITIAL#272 { &{/Tester_tb/DRAM_UDQM, /Tester_tb/DRAM_LDQM }} DQM
+quietly virtual function -install /Tester_tb -env /Tester_tb { &{/Tester_tb/DRAM_CS_N, /Tester_tb/DRAM_RAS_N, /Tester_tb/DRAM_CAS_N, /Tester_tb/DRAM_WE_N, /Tester_tb/DRAM_ADDR[10] }} command
+quietly virtual function -install /Tester_tb -env /Tester_tb { &{/Tester_tb/DRAM_UDQM, /Tester_tb/DRAM_LDQM }} DQM
 quietly WaveActivateNextPane {} 0
 add wave -noupdate -radixshowbase 0 /Tester_tb/CLOCK_50
 add wave -noupdate -radixshowbase 0 /Tester_tb/DRAM_CLK
