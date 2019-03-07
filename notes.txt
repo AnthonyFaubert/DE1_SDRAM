@@ -34,6 +34,7 @@ idle
 // tRP is 2
 // tRCD 2
 // tMRD is 2
+// tRAS is 5
 
 
 /* read/write command sequence
