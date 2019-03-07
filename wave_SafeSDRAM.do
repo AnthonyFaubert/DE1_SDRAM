@@ -70,7 +70,7 @@ add wave -noupdate /SafeSDRAM_tb/dut/CAS
 add wave -noupdate /SafeSDRAM_tb/dut/WE
 add wave -noupdate /SafeSDRAM_tb/dut/MODE_REG_VAL
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {186 ps} 0}
+WaveRestoreCursors {{Cursor 1} {389 ps} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 150
 configure wave -valuecolwidth 100
@@ -86,4 +86,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {0 ps} {921 ps}
+WaveRestoreZoom {362 ps} {478 ps}

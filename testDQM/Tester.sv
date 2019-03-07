@@ -63,11 +63,11 @@ module Tester (
    assign DRAM_DQ = OE ? DQ : 'Z;
 
    parameter WRITE_BURST_MODE = 1'b1; // Single location access
-   parameter LATENCY_MODE = 1'b0; // CAS latency = 2
+   parameter LATENCY_MODE = 3'd2; // CAS latency = 2 (only valid choices are 2 and 3)
    parameter BURST_TYPE = 1'b0; // sequential
    parameter BURST_LENGTH = 3'd0; // 1
    // {DRAM_BA, DRAM_ADDR} = MODE_REG_VAL;
-   localparam MODE_REG_VAL = {5'd0, WRITE_BURST_MODE, 4'd0, LATENCY_MODE, BURST_TYPE, BURST_LENGTH};
+   localparam MODE_REG_VAL = {5'd0, WRITE_BURST_MODE, 2'd0, LATENCY_MODE, BURST_TYPE, BURST_LENGTH};
 
    // keep (wires), preserve (regs), noprune (unused aka no fanout)
    // https://forums.intel.com/s/question/0D50P00003yyHTBSA2/how-to-preserve-nets-during-quartus-analysissynthesis?language=en_US
