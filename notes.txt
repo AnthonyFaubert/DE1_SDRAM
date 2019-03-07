@@ -62,7 +62,7 @@ at LEAST 2 of these {
 AUTO REFRESH
 wait tRC
 }
-optional {
+optional { // this can go before the auto-refreshes
 load ModeReg
 wait tMRD
 }
