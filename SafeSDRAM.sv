@@ -75,7 +75,8 @@ module SafeSDRAM (
    // CAS latency requires advance notice be given for writes.
    // In Fig RW2 on page 32, DQM3 holds value at clock T2, DQM2 holds val @T3, DQM1 holds val @T4,
    //  note that vals @T2 and @T3 are needed to determine a valid write command
-   logic [1:0] DQM3, DQM2, DQM1, DRAM_DQM; // DRAM_DQM is a proxy output port
+   // CORRECTION: it turns out that the DQM delay is 1 cycle longer than I thought. You clock in DQM high, NO-OP for 2 cycles, and then the next cycle will have the SDRAM not driving the signal. You still need 1 more cycle to make sure you don't clobber things, though. Basically the arrows in Figs RW1 & RW2 should cross 2 clock lines each instead of 1. In RW1, the arrow starting on T3 should end on T4.
+   logic [1:0] DQM4, DQM3, DQM2, DQM1, DRAM_DQM; // DRAM_DQM is a proxy output port
    assign {DRAM_UDQM, DRAM_LDQM} = DRAM_DQM;
 
    // Tristates don't seem to be settable in anything except an assign statement, and this is more representetive of the hardware, anyways
@@ -102,7 +103,7 @@ module SafeSDRAM (
 
    assign rdata = DRAM_DQ;
    // For synchronising with CAS latency of 2 (raddr0/rvalid0 are the combinational shift inputs)
-   logic rvalid2, rvalid1, rvalid0;
+   logic rvalid4, rvalid2, rvalid1, rvalid0; // readValid output is rvalid3
    logic [9:0] raddr2, raddr1, raddr0;
 
    // flip-flop holding whether or the previous clock was a valid write command, or something else
@@ -110,7 +111,7 @@ module SafeSDRAM (
    // if prev cmd was a valid write we can continue writing.
    // if DQM stopped the SDRAM from driving DQ then we can write. (DQM3=11 & DQM2=11)
    // don't allow writing sandwitched between a read command and its data (seemed to cause problems otherwise, see testDQM/DontInterleaveWrites.png)
-   assign writeReady = rowOpen & (~rvalid1 & ~rvalid2) & (lastCmdWasValidWrite | &{DQM3, DQM2}); // ANDing with rowOpen ensures this stays defined right after a reset without changing its meaning
+   assign writeReady = rowOpen & ~(rvalid4 | readValid | rvalid2 | rvalid1) & (lastCmdWasValidWrite | &{DQM4, DQM3, DQM2, DQM1}); // ANDing with rowOpen ensures this stays defined right after a reset without changing its meaning
    
    // For preventing misuse of bank address pins
    logic [1:0] currentBank, nextBank;
@@ -129,17 +130,17 @@ module SafeSDRAM (
       currentBank <= nextBank;
       currentRow <= nextRow;
       {raddr[9:0], raddr2, raddr1} <= {raddr2, raddr1, raddr0};
-      {DQM3, DQM2, DQM1} <= {DQM2, DQM1, DRAM_DQM};
+      {DQM4, DQM3, DQM2, DQM1} <= {DQM3, DQM2, DQM1, DRAM_DQM};
 
       // Resettable registers
       if (rst) begin
 	 {timingCounter, prechargeTimer, rowOpen} <= '0;
-	 {readValid, rvalid2, rvalid1} <= '0;
+	 {rvalid4, readValid, rvalid2, rvalid1} <= '0;
       end else begin
 	 timingCounter <= ntimingCounter;
 	 prechargeTimer <= nprechargeTimer;
 	 rowOpen <= nrowOpen;
-	 {readValid, rvalid2, rvalid1} <= {rvalid2, rvalid1, rvalid0};
+	 {rvalid4, readValid, rvalid2, rvalid1} <= {readValid, rvalid2, rvalid1, rvalid0};
       end
    end
 
@@ -362,6 +363,7 @@ module SafeSDRAM_tb ();
       @(posedge clk); #Tdiv4;
       command = NOOP; while (~commandReady) @(posedge clk); #Tdiv4;
 
+      // Check Timings //
       // Reset
       rst = 1; @(posedge clk); #Tdiv4;
       rst = 0; #Tdiv4;
@@ -389,7 +391,7 @@ module SafeSDRAM_tb ();
       writeMask = 2'b11;
       wdata = 16'hDEAD;
       addr[9:0] = 10'd299; #Tdiv4;
-      assert(DRAM_DQ == 10'd299);
+      assert(DRAM_DQ == 16'hDEAD);
       @(posedge clk); #Tdiv4;
       command = NOOP;
       repeat (`tDPL) begin assert(~prechargeReady); @(posedge clk); #Tdiv4; end
@@ -399,8 +401,33 @@ module SafeSDRAM_tb ();
       command = READA;
       addr[9:0] = 10'd185;
       @(posedge clk); #Tdiv4;
+      command = NOOP;
       repeat (`tRP) begin assert(~commandReady); @(posedge clk); #Tdiv4; end
-      assert(commandReady & ~rowOpen);
+      assert(commandReady & ~rowOpen & readValid);
+
+
+      // Check row->row timing
+      // Activate a row
+      command = ACTIVATE;
+      {bankSel, addr} = 15'd4444; @(posedge clk); #Tdiv4;
+      command = NOOP; #Tdiv4;
+      repeat (2) begin assert(~readValid & ~commandReady); @(posedge clk); #Tdiv4; end
+      assert(~readValid & commandReady & rowOpen);
+
+      repeat (`tRAS - 2) begin assert(~prechargeReady & ~readValid & commandReady); @(posedge clk); #Tdiv4; end
+      
+      // Start a write with precharge
+      assert(writeReady);
+      command = WRITEA;
+      writeMask = 2'b11;
+      wdata = 16'hBEEF;
+      addr[9:0] = 10'd333; #Tdiv4;
+      assert(DRAM_DQ == 16'hBEEF);
+      @(posedge clk); #Tdiv4;
+      command = NOOP;
+      repeat (`tDPL) begin assert(~prechargeReady & ~commandReady); @(posedge clk); #Tdiv4; end
+      repeat (`tRP) begin assert(~prechargeReady & ~commandReady & ~rowOpen); @(posedge clk); #Tdiv4; end
+      assert(~rowOpen & ~prechargeReady & commandReady);
 
       repeat (20) @(posedge clk);
       $stop;

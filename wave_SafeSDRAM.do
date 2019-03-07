@@ -33,23 +33,25 @@ add wave -noupdate /SafeSDRAM_tb/dut/commandReady
 add wave -noupdate /SafeSDRAM_tb/dut/prechargeReady
 add wave -noupdate /SafeSDRAM_tb/dut/rowOpen
 add wave -noupdate /SafeSDRAM_tb/dut/command
-add wave -noupdate /SafeSDRAM_tb/dut/bankSel
+add wave -noupdate -radix decimal /SafeSDRAM_tb/dut/bankSel
 add wave -noupdate /SafeSDRAM_tb/dut/addr
 add wave -noupdate /SafeSDRAM_tb/dut/writeReady
-add wave -noupdate /SafeSDRAM_tb/dut/writeMask
+add wave -noupdate -radix binary /SafeSDRAM_tb/dut/writeMask
 add wave -noupdate /SafeSDRAM_tb/dut/wdata
-add wave -noupdate /SafeSDRAM_tb/dut/readValid
 add wave -noupdate /SafeSDRAM_tb/dut/raddr
 add wave -noupdate /SafeSDRAM_tb/dut/rdata
+add wave -noupdate /SafeSDRAM_tb/dut/OE
+add wave -noupdate /SafeSDRAM_tb/dut/DQ
+add wave -noupdate /SafeSDRAM_tb/dut/error
+add wave -noupdate /SafeSDRAM_tb/dut/DQM4
 add wave -noupdate /SafeSDRAM_tb/dut/DQM3
 add wave -noupdate /SafeSDRAM_tb/dut/DQM2
 add wave -noupdate /SafeSDRAM_tb/dut/DQM1
 add wave -noupdate /SafeSDRAM_tb/dut/DRAM_DQM
 add wave -noupdate /SafeSDRAM_tb/dut/lastCmdWasValidWrite
 add wave -noupdate /SafeSDRAM_tb/dut/nlastCmdWasValidWrite
-add wave -noupdate /SafeSDRAM_tb/dut/OE
-add wave -noupdate /SafeSDRAM_tb/dut/DQ
-add wave -noupdate /SafeSDRAM_tb/dut/error
+add wave -noupdate /SafeSDRAM_tb/dut/rvalid4
+add wave -noupdate /SafeSDRAM_tb/dut/readValid
 add wave -noupdate /SafeSDRAM_tb/dut/rvalid2
 add wave -noupdate /SafeSDRAM_tb/dut/rvalid1
 add wave -noupdate /SafeSDRAM_tb/dut/rvalid0
@@ -68,9 +70,9 @@ add wave -noupdate /SafeSDRAM_tb/dut/nprechargeTimer
 add wave -noupdate /SafeSDRAM_tb/dut/RAS
 add wave -noupdate /SafeSDRAM_tb/dut/CAS
 add wave -noupdate /SafeSDRAM_tb/dut/WE
-add wave -noupdate /SafeSDRAM_tb/dut/MODE_REG_VAL
+add wave -noupdate -radix binary /SafeSDRAM_tb/dut/MODE_REG_VAL
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {389 ps} 0}
+WaveRestoreCursors {{Cursor 1} {604 ps} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 150
 configure wave -valuecolwidth 100
@@ -86,4 +88,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {362 ps} {478 ps}
+WaveRestoreZoom {494 ps} {610 ps}
