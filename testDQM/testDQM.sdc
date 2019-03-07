@@ -21,7 +21,7 @@ set_output_delay -clock altera_reserved_tck 3 [get_ports altera_reserved_tdo]
 create_generated_clock -source [get_pins {u0|pll_sys|altera_pll_i|general[1].gpll~PLL_OUTPUT_COUNTER|divclk}] \
                       -name clk_dram_ext [get_ports {DRAM_CLK}]
 #VGA CLK
-create_generated_clock -source [get_pins { u0|pll_sys|altera_pll_i|general[3].gpll~PLL_OUTPUT_COUNTER|divclk }] \
+#create_generated_clock -source [get_pins { u0|pll_sys|altera_pll_i|general[3].gpll~PLL_OUTPUT_COUNTER|divclk }] \
                       -name clk_vga_ext [get_ports {VGA_CLK}] -invert
 
 #D8M							 
