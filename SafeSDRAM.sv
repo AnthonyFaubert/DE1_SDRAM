@@ -111,7 +111,7 @@ module SafeSDRAM (
    // if prev cmd was a valid write we can continue writing.
    // if DQM stopped the SDRAM from driving DQ then we can write. (DQM3=11 & DQM2=11)
    // don't allow writing sandwitched between a read command and its data (seemed to cause problems otherwise, see testDQM/DontInterleaveWrites.png)
-   assign writeReady = rowOpen & ~(rvalid4 | readValid | rvalid2 | rvalid1) & (lastCmdWasValidWrite | &{DQM4, DQM3, DQM2, DQM1}); // ANDing with rowOpen ensures this stays defined right after a reset without changing its meaning
+   assign writeReady = rowOpen & ~(rvalid4 | readValid | rvalid2 | rvalid1) & (lastCmdWasValidWrite | &{DQM4, DQM3, DQM2, DQM1});
    
    // For preventing misuse of bank address pins
    logic [1:0] currentBank, nextBank;
@@ -130,18 +130,19 @@ module SafeSDRAM (
       currentBank <= nextBank;
       currentRow <= nextRow;
       {raddr[9:0], raddr2, raddr1} <= {raddr2, raddr1, raddr0};
-      {DQM4, DQM3, DQM2, DQM1} <= {DQM3, DQM2, DQM1, DRAM_DQM};
 
       // Resettable registers
       if (rst) begin
 	 {timingCounter, prechargeTimer} <= '0;
 	 rowOpen <= 1; // to allow the PRECHARGE_ALL command in the boot sequence
 	 {rvalid4, readValid, rvalid2, rvalid1} <= '0;
+	 {DQM4, DQM3, DQM2, DQM1} <= '0;
       end else begin
 	 timingCounter <= ntimingCounter;
 	 prechargeTimer <= nprechargeTimer;
 	 rowOpen <= nrowOpen;
 	 {rvalid4, readValid, rvalid2, rvalid1} <= {readValid, rvalid2, rvalid1, rvalid0};
+	 {DQM4, DQM3, DQM2, DQM1} <= {DQM3, DQM2, DQM1, DRAM_DQM};
       end
    end
 
@@ -301,9 +302,41 @@ module SafeSDRAM_tb ();
    int i;
    initial begin
       writeMask = 2'b11; // needs to have a value for write commands
+      // Boot sequence testing //
+      // Reset
       rst = 1; @(posedge clk); @(posedge clk); #Tdiv4; // for clarity of reading the waveform, don't change signals at the clock edge
       rst = 0; #Tdiv4;
-      assert(commandReady & ~rowOpen & ~prechargeReady);
+      assert(~readValid);
+      repeat (100*1000/CLOCK_PERIOD) @(posedge clk); // 100us wait
+      #Tdiv4;
+   
+      // Precharge boot directive
+      assert(commandReady & prechargeReady);
+      command = PRECHARGE_ALL; @(posedge clk); #Tdiv4;
+      command = NOOP;
+      repeat (`tRP) begin assert(~commandReady); @(posedge clk); #Tdiv4; end
+      assert(commandReady & ~rowOpen);
+
+      // Mode reg set
+      command = SET_MODE_REG; @(posedge clk); #Tdiv4;
+      command = NOOP;
+      repeat (`tMRD) begin assert(~commandReady); @(posedge clk); #Tdiv4; end
+      assert(commandReady & ~rowOpen);
+
+      // Auto refresh
+      command = AREFRESH; @(posedge clk); #Tdiv4;
+      command = NOOP;
+      repeat (`tRC) begin assert(~commandReady); @(posedge clk); #Tdiv4; end
+      assert(commandReady & ~rowOpen);
+
+      // Auto refresh
+      command = AREFRESH; @(posedge clk); #Tdiv4;
+      command = NOOP;
+      repeat (`tRC) begin assert(~commandReady); @(posedge clk); #Tdiv4; end
+      assert(commandReady & ~rowOpen);
+
+      // Space things out
+      repeat (20) @(posedge clk);
 
       // Test command table: (page 9) //
       command = NOOP; #Tdiv4; // give time for logic to change before checking assertions
@@ -364,11 +397,8 @@ module SafeSDRAM_tb ();
       @(posedge clk); #Tdiv4;
       command = NOOP; while (~commandReady) @(posedge clk); #Tdiv4;
 
+
       // Check Timings //
-      // Reset
-      rst = 1; @(posedge clk); #Tdiv4;
-      rst = 0; #Tdiv4;
-      assert(~readValid);
       // Activate a row
       command = ACTIVATE;
       {bankSel, addr} = 15'd9999; @(posedge clk); #Tdiv4;
@@ -430,7 +460,15 @@ module SafeSDRAM_tb ();
       repeat (`tRP) begin assert(~prechargeReady & ~commandReady & ~rowOpen); @(posedge clk); #Tdiv4; end
       assert(~rowOpen & ~prechargeReady & commandReady);
 
-      repeat (20) @(posedge clk);
+
+      
+      // Space out the end
+      repeat (10) @(posedge clk); #Tdiv4;
+      // Reset
+      rst = 1; @(posedge clk); #Tdiv4;
+      rst = 0; #Tdiv4;
+      assert(~readValid);
+      repeat (10) @(posedge clk);      
       $stop;
    end
 endmodule
