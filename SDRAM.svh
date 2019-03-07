@@ -2,6 +2,7 @@
 `ifndef __SDRAM_SVH__
 `define __SDRAM_SVH__
 
+// AREFRESH = auto refresh
 typedef enum {NOOP, ACTIVATE, READ, READA, WRITE, WRITEA, PRECHARGE_BANK, PRECHARGE_ALL, AREFRESH, SET_MODE_REG} CommandEnum;
 
 // PRECHARGE_BANK, PRECHARGE_ALL, WRITEA, and READA are all "precharge" commands, however WRITEA delays before precharging

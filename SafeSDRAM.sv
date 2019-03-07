@@ -134,7 +134,8 @@ module SafeSDRAM (
 
       // Resettable registers
       if (rst) begin
-	 {timingCounter, prechargeTimer, rowOpen} <= '0;
+	 {timingCounter, prechargeTimer} <= '0;
+	 rowOpen <= 1; // to allow the PRECHARGE_ALL command in the boot sequence
 	 {rvalid4, readValid, rvalid2, rvalid1} <= '0;
       end else begin
 	 timingCounter <= ntimingCounter;
