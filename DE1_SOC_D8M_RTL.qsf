@@ -6,7 +6,7 @@ set_global_assignment -name FAMILY "Cyclone V"
 set_global_assignment -name DEVICE 5CSEMA5F31C6
 set_global_assignment -name TOP_LEVEL_ENTITY "DE1_SOC_D8M_RTL"
 set_global_assignment -name ORIGINAL_QUARTUS_VERSION 15.1.0
-set_global_assignment -name LAST_QUARTUS_VERSION "17.1.1 Lite Edition"
+set_global_assignment -name LAST_QUARTUS_VERSION "17.0.0 Lite Edition"
 set_global_assignment -name PROJECT_CREATION_TIME_DATE "16:51:20 JANUARY 27,2016"
 set_global_assignment -name DEVICE_FILTER_PACKAGE FBGA
 set_global_assignment -name DEVICE_FILTER_PIN_COUNT 896
@@ -589,3 +589,4 @@ set_global_assignment -name VERILOG_FILE V_Sdram_Control/control_interface.v
 set_global_assignment -name VERILOG_FILE V_Sdram_Control/command.v
 set_global_assignment -name QIP_FILE V/VIDEO_PLL.qip
 set_global_assignment -name SYSTEMVERILOG_FILE Filter.sv
+set_global_assignment -name QIP_FILE EasySDRAM_CmdFIFO.qip
