@@ -5,13 +5,19 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 	input logic clk, rst, // max clock: 133MHz, recommend 100 or 125 for nice multiple of 50MHz
 
         // FIFO interface
-        input logic write, full, // write and full signals of the FIFO
+        input logic write, // write and full signals of the FIFO
+        output logic full,
+        output logic [7:0] fifoUsage, // how many commands are pending in the FIFO (256 will cause full)
         // FIFO write word (seperated into its parts)
         input logic isWrite, // 1'b0: read from address, 1'b1: write writeData with writeMask to address
         input logic [24:0] address, // [24:10] is the row address, [9:0] is the column address. It costs 4-6 cycles to switch rows.
         input logic [1:0] writeMask, // 2'b11: write data[15:0], 2'b10: write data[15:8], 2'b01: write data[7:0], 2'b00: invalid
         input logic [15:0] writeData,
 
+        // Read port
+	output logic readValid, // ignore raddr and rdata if this is false, otherwise they carry a readout
+	output logic [24:0] raddr, // tells you the address the data was read from
+	output logic [15:0] rdata, // tells you the data that was at the address
 
         // This signals to the controller to keep the row open for as long as possible instead of refreshing when the command FIFO becomes empty.
         // Refreshes can cost up to 1(close cmd) + 2(close delay) + 1(refresh cmd) + 8(refresh delay) + 1(open cmd) + 2(open delay) = 15 cycles! So don't keep this true unless you're sure you'll have data soon
@@ -38,12 +44,12 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
      );
    localparam REFRESH_TIME = 10**6 * 64 / 8192 / CLOCK_PERIOD; // # of clocks in between each refresh (125MHz: 976)
 
-   logic commandReady, prechargeReady, writeReady, readValid; // rowOpen is an output port
+   logic commandReady, prechargeReady, writeReady; // rowOpen and readValid are output ports
    CommandEnum command;
    logic [1:0] wMask, bankSel;
    logic [12:0] addr;
-   logic [15:0] wdata, rdata;
-   logic [24:0] raddr;
+   logic [15:0] wdata;
+   // raddr and rdata are output ports
    SafeSDRAM safeDRAM (.clk, .rst, .command, 
 		       .commandReady, .prechargeReady, .writeReady, .rowOpen,
 		       .addr, .bankSel, .writeMask(wMask), .wdata,
@@ -51,6 +57,13 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 		       .DRAM_DQ, .DRAM_ADDR, .DRAM_BA, .DRAM_CAS_N, .DRAM_CKE,
 		       .DRAM_CLK, .DRAM_CS_N, .DRAM_LDQM, .DRAM_RAS_N, .DRAM_UDQM, .DRAM_WE_N
 		       );
+
+   // 256x44 FIFO using 2 M10ks (2 M10ks = 64x256)
+   logic empty, read;
+   logic [43:0] wfifo, rfifo;
+   EasySDRAM_CmdFIFO cmdFIFO (.clock(clk), .sclr(rst), .rdreq(read), .wrreq(write),
+			      .empty, .full, .data(wfifo), .q(rfifo), .usedw(fifoUsage)); // usedwords
+   assign wfifo = {isWrite, writeMask, address, writeData};
 
    logic [13:0] waitCtr, nwaitCtr; // can handle 2^14=16384 > 100us*133MHz = 13300 cycles
    logic [9:0] refreshTimer, nrefreshTimer; // 1024 > REFRESH_TIME
@@ -60,6 +73,7 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
       command = NOOP;
       nrefreshTimer = refreshTimer - 10'd1; // keep ticking down
       nwaitCtr = 'X;
+      read = 0;
       
       case (ps)
 	// Utility
