@@ -53,9 +53,13 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 		       );
 
    logic [13:0] waitCtr, nwaitCtr; // can handle 2^14=16384 > 100us*133MHz = 13300 cycles
+   logic [9:0] refreshTimer, nrefreshTimer; // 1024 > REFRESH_TIME
+   logic [2:0] writebackTimer, nwritebackTimer; // 8 > tDPL=2, keeps track of writeback delay before precharges
    enum 	{RESET, BOOTA, BOOTB, BOOTC, BOOTD, IDLE} ps, ns, waitReturn, nwaitReturn;
    always_comb begin
       command = NOOP;
+      nrefreshTimer = refreshTimer - 10'd1; // keep ticking down
+      nwaitCtr = 'X;
       
       case (ps)
 	// Utility
@@ -91,11 +95,57 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 	   end else begin
 	      ns = ps;
 	   end
+	   nrefreshTimer = 2;
 	end
 
 	// Normal operation
 	IDLE: begin
-	   
+	   if (commandReady) begin
+	      if (empty & ~keepOpen) begin // might as well refresh
+		 command = AREFRESH;
+		 nrefreshTimer = REFRESH_TIME;
+	      end else if (~empty) begin // stuff to do
+		 if (rowOpen) begin
+		    // Minimum write access is write(1) WRITE->PRE(tDPL) + close(1) + PRE->REF(tRP)
+		    if (refreshTimer > (4'd2 + `tDPL + `tRP)) begin
+		       command = WRITE; if (fifoOut[command] = write); // TODO
+		    // Minimum writea access is writea(1) WRITE->PRE(tDPL) + PRE->REF(tRP)
+		    end else if (refreshTimer > (4'd1 + `tDPL + `tRP)) begin
+		       command = WRITEA; // don't have to issue a close command TODO
+		    // Minimum read access is read(1) + close(1) + PRE->REF(tRP)
+		    end else if (refreshTimer > (4'd2 + `tRP)) begin
+		       command = READ; // TODO
+		    end else begin // time to close the row
+		       command = READA; or; // TODO
+		       command = PRECHARGE_ALL;
+		    end
+		 end else begin // ~rowOpen
+		    // Minimum read access is read(1) + close(1) + PRE->REF(tRP)
+		    if (refreshTimer > (4'd2 + `tRP)) begin
+		       command = READ;
+		    end else if (refreshTimer > (4'd1 + `tDPL + `tRP)) begin
+		       command = WRITEA; // don't have to issue a close command
+		    end else begin // too late to do a write, even with auto-precharge
+		       command = PRECHARGE_ALL;
+		    end
+		    
+		    // Minimum access is close(1) + PRE->REF(tRP) = 1+2=3
+		    if (refreshTimer > (4'd1 + `tRP)) begin // TODO Write tDPL
+		    end else begin // too late to do anymore read/writes
+		       command = PRECHARGE_ALL;
+		    end
+		 end else begin // ~rowOpen
+		    // Minimum row access is open(1) + ACT->PRE(tRAS) + close(1) + PRE->REF(tRP) = 2+5+2=9
+		    if (refreshTimer > (4'd2 + `tRAS + `tRP)) begin // there's time to open and close a row
+		       // TODO: do stuff
+		    end else begin // too late to open a row
+		       command = AREFRESH;
+		       nrefreshTimer = REFRESH_TIME;
+		    end
+		    // ACT->REF
+		 end // else: !if(rowOpen)
+	      end // implies if (empty & keepOpen) command = NOOP
+	   end // implies if (~commandReady) command = NOOP
 	end
       endcase
    end
