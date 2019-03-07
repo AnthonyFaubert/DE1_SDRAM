@@ -8,3 +8,4 @@ incremental_db/
 output_files/
 work/
 *.qws
+greybox_tmp/
