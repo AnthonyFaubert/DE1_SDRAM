@@ -4,6 +4,8 @@ add wave -noupdate /EasySDRAM_tb/CLOCK_PERIOD
 add wave -noupdate /EasySDRAM_tb/Tdiv4
 add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/clk
 add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/rst
+add wave -noupdate /EasySDRAM_tb/clkCtr
+add wave -noupdate /EasySDRAM_tb/lastRefresh
 add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/write
 add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/full
 add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/isWrite
@@ -56,13 +58,13 @@ add wave -noupdate /EasySDRAM_tb/dut/wdata
 add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/dut/busy
 add wave -noupdate -radix unsigned -radixshowbase 0 /EasySDRAM_tb/dut/fifoUsage
 add wave -noupdate /EasySDRAM_tb/dut/address
-add wave -noupdate -format Logic -radix binary -radixshowbase 0 /EasySDRAM_tb/dut/writeMask
+add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/dut/writeMask
 add wave -noupdate /EasySDRAM_tb/dut/writeData
 add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/dut/readValid
 add wave -noupdate /EasySDRAM_tb/dut/raddr
 add wave -noupdate /EasySDRAM_tb/dut/rdata
 add wave -noupdate /EasySDRAM_tb/dut/refreshCountdown
-add wave -noupdate -format Logic -radix binary -radixshowbase 0 /EasySDRAM_tb/dut/wMask
+add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/dut/wMask
 add wave -noupdate -radix unsigned -radixshowbase 0 /EasySDRAM_tb/dut/bankSel
 add wave -noupdate /EasySDRAM_tb/dut/addr
 add wave -noupdate /EasySDRAM_tb/dut/wfifo
@@ -85,7 +87,7 @@ add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/dut/DRAM_RAS_N
 add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/dut/DRAM_UDQM
 add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/dut/DRAM_WE_N
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {11295686164 ps} 0}
+WaveRestoreCursors {{Cursor 1} {100107095 ps} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 150
 configure wave -valuecolwidth 100
@@ -101,4 +103,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {11295665006 ps} {11295900526 ps}
+WaveRestoreZoom {100025990 ps} {100261510 ps}

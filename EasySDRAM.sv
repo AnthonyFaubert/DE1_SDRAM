@@ -157,19 +157,27 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 		 if ((cmdRow == raddr[24:10]) & rowOpen) begin
 		    // On the right row
 		    if (cmdWrite) begin // write requested
-		       if (refreshTimer > (4'd2 + `tDPL + `tRP)) begin
-			  // There's enough time to write(1) + WRITE->PRE(tDPL) + close(1) + PRE->REF(tRP)
-			  command = WRITE;
-			  read = 1; // next command
-		       end else if (refreshTimer > (4'd1 + `tDPL + `tRP)) begin
-			  // There's enough time to writea(1) + WRITE->PRE(tDPL) + PRE->REF(tRP)
-			  command = WRITEA;
-			  read = 1; // next command
-			  busy = 1;
+		       if (writeReady) begin
+			  if (refreshTimer > (4'd2 + `tDPL + `tRP)) begin
+			     // There's enough time to write(1) + WRITE->PRE(tDPL) + close(1) + PRE->REF(tRP)
+			     command = WRITE;
+			     read = 1; // next command
+			  end else if ((refreshTimer > (4'd1 + `tDPL + `tRP)) & prechargeReady) begin
+			     // There's enough time to writea(1) + WRITE->PRE(tDPL) + PRE->REF(tRP)
+			     command = WRITEA;
+			     read = 1; // next command
+			     busy = 1;
+			  end else begin
+			     // no time, refresh ASAP
+			     if (prechargeReady) command = PRECHARGE_ALL;
+			     busy = 1;
+			  end
+		       end else if (refreshTimer > (4'd2 + `tDAL)) begin // ~writeReady
+			  // There's enough time to wait4writeRdy(1) + writea(1) + WRITEA->REF(tDAL)
+			  command = NOOP;
 		       end else begin
-			  // no time, refresh ASAP
-			  command = PRECHARGE_ALL;
-			  busy = 1;
+			  // Not ready to write and not enough time to wait to be ready.
+			  if (prechargeReady) command = PRECHARGE_ALL;
 		       end
 		    end else begin // read requested
 		       if (refreshTimer <= (4'd2 + `tRP)) begin
@@ -288,16 +296,36 @@ module EasySDRAM_tb ();
    logic [1:0] DRAM_BA;
    logic DRAM_CAS_N, DRAM_CKE, DRAM_CLK, DRAM_CS_N, DRAM_LDQM, DRAM_RAS_N, DRAM_UDQM, DRAM_WE_N;
 
-   // Set up the 133MHz clock
+   // Set up the 133MHz clock and a number that counts clock posedges
    parameter CLOCK_PERIOD=7.5;
+   int 	 clkCtr, lastRefresh;
    initial begin
       clk <= 0;
       forever #(CLOCK_PERIOD/2) clk <= ~clk;
+      clkCtr = 0;
+      lastRefresh = 0;
    end
+   always @(posedge clk) clkCtr++;
    localparam Tdiv4 = CLOCK_PERIOD / 4;
 
    // DUT
    EasySDRAM #(CLOCK_PERIOD) dut (.*);
+   import CommandEnumPackage::*; // so we can use the enum values
+
+   // Check refresh timing
+   always @(posedge clk) begin
+      if (dut.commandReady && !dut.rowOpen && (dut.command == AREFRESH)) begin
+	 // Valid refresh command
+	 if (lastRefresh == 0) begin
+	    // We were waiting for the first refresh
+	    lastRefresh = clkCtr;
+	 end else begin
+	    // Check timing: assert (now - lastRefresh) < (refresh period)
+	    assert( (clkCtr - lastRefresh) < (10**6 * 64 / 8192 / CLOCK_PERIOD) );
+	    lastRefresh = clkCtr;
+	 end
+      end
+   end
 
 
    int i;
