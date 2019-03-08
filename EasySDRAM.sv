@@ -157,14 +157,17 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 			  // There's enough time to writea(1) + WRITE->PRE(tDPL) + PRE->REF(tRP)
 			  command = WRITEA;
 			  read = 1; // next command
+			  busy = 1;
 		       end else begin
 			  // no time, refresh ASAP
 			  command = PRECHARGE_ALL;
+			  busy = 1;
 		       end
 		    end else begin // read requested
 		       if (refreshTimer <= (4'd2 + `tRP)) begin
 			  // Not enough time to read(1) + close(1) + PRE->REF(tRP), so we need to refresh ASAP
 			  command = READA; // we can read and close at the same time
+			  busy = 1;
 		       end else begin
 			  command = READ;
 		       end
@@ -183,7 +186,8 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 		    end else begin
 		       // Not enough time to open and close a row, refresh instead
 		       command = AREFRESH; // refresh
-		       nrefreshTimer = REFRESH_TIME;		       
+		       nrefreshTimer = REFRESH_TIME;
+		       busy = 1;
 		    end
 		 end // else: !if(rowOpen)
 
@@ -234,12 +238,14 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 		    if (refreshTimer <= (4'd2 + `tRP)) begin
 		       // Not enough time to wait4cmd(1) + close(1) + PRE->REF(tRP)
 		       PRECHARGE_ALL;
+		       busy = 1;
 		    end
 		 end else begin // no row open
 		    if (refreshTimer <= (4'd3 + `tRAS + `tRP)) begin
 		       // Not enough time to wait4cmd(1) + open(1) + ACT->PRE(tRAS) + close(1) + PRE->REF(tRP)
 		       command = AREFRESH; // refresh
-		       nrefreshTimer = REFRESH_TIME;	       
+		       nrefreshTimer = REFRESH_TIME;
+		       busy = 1;
 		    end
 		 end
 	      end
@@ -269,7 +275,7 @@ module EasySDRAM_tb ();
    logic [1:0] DRAM_BA;
    logic DRAM_CAS_N, DRAM_CKE, DRAM_CLK, DRAM_CS_N, DRAM_LDQM, DRAM_RAS_N, DRAM_UDQM, DRAM_WE_N;
 
-   SafeSDRAM dut (.*);
+   EasySDRAM dut (.*);
 
    // Set up the 133MHz clock
    parameter CLOCK_PERIOD=7.5;
