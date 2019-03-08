@@ -26,9 +26,9 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 	input logic keepOpen,
 
         // Status outputs. You can ignore them, but they might be useful for optimizing
-	output logic busy, // tells you when the controller is busy with delays or refreshes, and isn't paying attention to the command fifo yet
-	output logic rowOpen, // tells you if a row is still open
-	output logic [9:0] refreshCountdown, // number of cycles before the controller drops what it's doing to save some data that's about to decay away.
+	output logic busy, // tells you when the controller is busy with delays or refreshes, and isn't paying attention to the command fifo yet (doesn't look like it would actually be very useful)
+	output logic rowOpen, // tells you if a row is still open (more useful than busy)
+	output logic [9:0] refreshCountdown, // number of cycles before the controller drops what it's doing to save some data that's about to decay away. (currently will actually start a refresh procedure when this is about 15 or less, TODO: change)
 
 
 	// SDRAM I/O, connect to top-level SDRAM I/O //
@@ -355,20 +355,34 @@ module EasySDRAM_tb ();
 
       // Write 2 rows
       i = 2;
+      write = 1; isWrite = 1;
       for (i = 2; i < 2048; i++) begin
-	 {write, isWrite, address} = {2'b11, i[24:0]};
+	 address = i[24:0];
 	 {writeMask, writeData} = {2'b11, i[16:1]};
 	 @(posedge clk); #Tdiv4;
 	 while (full) @(posedge clk); #Tdiv4;
       end
+      write = 0;
 
       // Wait for it to finish
       keepOpen = 1;
       while (fifoUsage != 8'd0) @(posedge clk);
       // Watch it try to stay open
-      repeat (1000) @(posedge clk);
+      repeat (dut.REFRESH_TIME + 20) @(posedge clk);
       #Tdiv4;
-      
+
+      // Alternate reads and writes across rows (horrendously inefficient)
+      write = 1;
+      for (i = 0; i < 500; i++) begin
+	 isWrite = i[0];
+	 address = (i >> 1)*200; // change that to left-shift and boy-oh-boy the controller gets thrashed
+	 {writeMask, writeData} = {2'b11, i[15:0]};
+	 @(posedge clk); #Tdiv4;
+	 while (full) @(posedge clk); #Tdiv4;
+      end
+      write = 0;
+
+      repeat (20) @(posedge clk);
       $stop;
    end
 endmodule
