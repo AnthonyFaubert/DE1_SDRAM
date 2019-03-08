@@ -213,6 +213,7 @@ module SafeSDRAM import CommandEnumPackage::*; (
 		       ntimingCounter = `tRP; // PRE->ACT
 		       nrowOpen = 0;
 		    end else begin
+		       DRAM_ADDR[10] = 0;
 		       error = 1;
 		    end
 		 end else if (command == WRITEA) begin // this technically can be sent tDPL cycles before prechargeReady=1, but that's too complicated for now
@@ -221,6 +222,9 @@ module SafeSDRAM import CommandEnumPackage::*; (
 		       nrowOpen = 0;
 		    end else begin
 		       error = 1;
+		       // NO-OP
+		       CAS = 0;
+		       WE = 0;
 		    end
 		 end // READA/WRITEA
 	      end else begin // if (rowOpen) else
