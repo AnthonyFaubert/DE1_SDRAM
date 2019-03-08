@@ -1,4 +1,6 @@
 
+`timescale 1 ns / 1 ps
+
 `include "SDRAM.svh"
 
 module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (default 125MHz) needed for refresh timing
@@ -42,9 +44,10 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 	output logic DRAM_UDQM, // Upper DQ Mask, same as LDQM, but for the upper byte (DQ[15:8]) instead of the lower one
 	output logic DRAM_WE_N // WriteEnable, active-low
      );
-   localparam REFRESH_TIME = (10**6 * 64 / 8192 / CLOCK_PERIOD) - 1; // # of clocks in between each refresh (125MHz: 976) (-1 for off-by-1 safety)
+   localparam REFRESH_TIME = $floor((10**6 * 64 / 8192 / CLOCK_PERIOD) - 1); // # of clocks in between each refresh (125MHz: 976) (-1 for off-by-1 safety)
 
    logic commandReady, prechargeReady, writeReady; // rowOpen and readValid are output ports
+   import CommandEnumPackage::*;
    CommandEnum command;
    logic [1:0] wMask, bankSel;
    logic [12:0] addr;
@@ -71,9 +74,10 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
    assign {cmdWrite, wMask, cmdRow, cmdCol, wdata} = rfifo;
 
    logic [13:0] waitCtr, nwaitCtr; // can handle 2^14=16384 > 100us*133MHz = 13300 cycles
-   logic [9:0] refreshTimer, nrefreshTimer; // 1024 > REFRESH_TIME
-   logic [2:0] writebackTimer, nwritebackTimer; // 8 > tDPL=2, keeps track of writeback delay before precharges
-   enum 	{RESET, BOOTA, BOOTB, BOOTC, BOOTD, INIT_FIFO, WORK} ps, ns, waitReturn, nwaitReturn;
+   logic [10:0] refreshTimer, nrefreshTimer; // 2048 > REFRESH_TIME
+   // pretty sure the writeback timer is handled by prechargeReady in SafeSDRAM, TODO remove this?
+   //logic [2:0] writebackTimer, nwritebackTimer; // 8 > tDPL=2, keeps track of writeback delay before precharges
+   enum 	{RESET, BOOTA, BOOTB, BOOTC, BOOTD, WORK, WAIT} ps, ns, waitReturn, nwaitReturn;
    always_comb begin
       command = NOOP;
       nrefreshTimer = refreshTimer - 10'd1; // keep ticking down
@@ -81,6 +85,9 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
       read = 0;
       busy = 1;
       addr[9:0] = cmdCol;
+
+      // TODO: improve this and then maybe use it for behavior decisions?
+      refreshCountdown = refreshTimer;
       
       case (ps)
 	// Utility
@@ -93,7 +100,7 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 	// SDRAM boot sequence
 	RESET: begin // start waiting 100us
 	   nwaitCtr = 100 * 1000/CLOCK_PERIOD + 10; // 100us in clocks (+ 10 clocks because why not / peace of mind)
-	   nwaitReturn = TODO;
+	   nwaitReturn = BOOTA;
 	   ns = WAIT;
 	end
 	BOOTA: begin // close any banks that booted open, I assume
@@ -113,7 +120,7 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 	      command = AREFRESH; // auto refresh
 	      nrefreshTimer = REFRESH_TIME;
 	      if (ps == BOOTC) ns = BOOTD;
-	      else ns = IDLE
+	      else ns = WORK;
 	   end else begin
 	      ns = ps;
 	   end
@@ -133,7 +140,8 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 	end
 */
 	// Normal operation
-	IDLE: begin
+	WORK: begin
+	   ns = WORK; // stay here forever (until reset)
 	   // Can't do anything if we're not ready
 	   if (commandReady) begin
 	      busy = 0;
@@ -237,7 +245,7 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 		 if (rowOpen) begin
 		    if (refreshTimer <= (4'd2 + `tRP)) begin
 		       // Not enough time to wait4cmd(1) + close(1) + PRE->REF(tRP)
-		       PRECHARGE_ALL;
+		       command = PRECHARGE_ALL;
 		       busy = 1;
 		    end
 		 end else begin // no row open
@@ -254,6 +262,11 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
       endcase
    end
    always_ff @(posedge clk) begin
+      waitCtr <= nwaitCtr;
+      waitReturn <= nwaitReturn;
+      refreshTimer <= nrefreshTimer;
+      // TODO REMOVE? writebackTimer <= nwritebackTimer;
+
       if (rst) begin
 	 ps <= RESET;
       end else begin
@@ -263,19 +276,17 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 endmodule // EasySDRAM
 
 module EasySDRAM_tb ();
-   logic clk, rst, commandReady, prechargeReady, writeReady, readValid, rowOpen;
-   CommandEnum command;
-   logic [1:0] writeMask, bankSel;
-   logic [12:0] addr;
-   logic [15:0] wdata, rdata;
-   logic [24:0] raddr;
-   	       
+   logic clk, rst, write, full, isWrite, readValid, keepOpen, busy, rowOpen;
+   logic [9:0] refreshCountdown;
+   logic [7:0] fifoUsage;
+   logic [24:0] raddr, address;
+   logic [1:0] 	writeMask;
+   logic [15:0] writeData, rdata;
+
    tri [15:0] DRAM_DQ;
    logic [12:0] DRAM_ADDR;
    logic [1:0] DRAM_BA;
    logic DRAM_CAS_N, DRAM_CKE, DRAM_CLK, DRAM_CS_N, DRAM_LDQM, DRAM_RAS_N, DRAM_UDQM, DRAM_WE_N;
-
-   EasySDRAM dut (.*);
 
    // Set up the 133MHz clock
    parameter CLOCK_PERIOD=7.5;
@@ -285,140 +296,51 @@ module EasySDRAM_tb ();
    end
    localparam Tdiv4 = CLOCK_PERIOD / 4;
 
+   // DUT
+   EasySDRAM #(CLOCK_PERIOD) dut (.*);
+
 
    int i;
    initial begin
-      writeMask = 2'b11; // needs to have a value for write commands
+      {write, keepOpen} = '0;
       rst = 1; @(posedge clk); @(posedge clk); #Tdiv4; // for clarity of reading the waveform, don't change signals at the clock edge
       rst = 0; #Tdiv4;
-      assert(commandReady & ~rowOpen & ~prechargeReady);
+      assert(busy & ~full & ~readValid);
+      while (busy) begin
+	 assert(~full & ~readValid);
+	 @(posedge clk); #Tdiv4;
+      end
+      assert(~busy & ~full & ~readValid);
 
-      // Test command table: (page 9) //
-      command = NOOP; #Tdiv4; // give time for logic to change before checking assertions
-      assert({DRAM_CKE, DRAM_CS_N, DRAM_RAS_N, DRAM_CAS_N, DRAM_WE_N} == 5'b10111);
+      // Watch some auto-refreshing
+      repeat (10) @(posedge clk);
+      #Tdiv4;
+
+      // send some writes
+      {write, isWrite, address} = {2'b11, 25'd0};
+      {writeMask, writeData} = {2'b11, 16'hDEAD};
       @(posedge clk); #Tdiv4;
-     
       
-      command = ACTIVATE; #Tdiv4;
-      assert({DRAM_CKE, DRAM_CS_N, DRAM_RAS_N, DRAM_CAS_N, DRAM_WE_N} == 5'b10011);
+      {write, isWrite, address} = {2'b11, 25'd1};
+      {writeMask, writeData} = {2'b11, 16'hBEEF};
       @(posedge clk); #Tdiv4;
-      command = NOOP; while (~commandReady) @(posedge clk); #Tdiv4;
+
+      // Write 2 rows
+      i = 2;
+      for (i = 2; i < 2048; i++) begin
+	 {write, isWrite, address} = {2'b11, i[24:0]};
+	 {writeMask, writeData} = {2'b11, i[16:1]};
+	 @(posedge clk); #Tdiv4;
+	 while (full) @(posedge clk); #Tdiv4;
+      end
+
+      // Wait for it to finish
+      keepOpen = 1;
+      while (fifoUsage != 8'd0) @(posedge clk);
+      // Watch it try to stay open
+      repeat (1000) @(posedge clk);
+      #Tdiv4;
       
-      command = WRITE; #Tdiv4;
-      assert({DRAM_CKE, DRAM_CS_N, DRAM_RAS_N, DRAM_CAS_N, DRAM_WE_N, DRAM_ADDR[10]} == 6'b101000);
-      @(posedge clk); #Tdiv4;
-      command = NOOP; while (~commandReady) @(posedge clk); #Tdiv4;
-      
-      command = READ; #Tdiv4;
-      assert({DRAM_CKE, DRAM_CS_N, DRAM_RAS_N, DRAM_CAS_N, DRAM_WE_N, DRAM_ADDR[10]} == 6'b101010);
-      @(posedge clk); #Tdiv4;
-      command = NOOP; while (~(commandReady & prechargeReady)) @(posedge clk); #Tdiv4;
-      
-      command = READA; #Tdiv4;
-      assert({DRAM_CKE, DRAM_CS_N, DRAM_RAS_N, DRAM_CAS_N, DRAM_WE_N, DRAM_ADDR[10]} == 6'b101011);
-      @(posedge clk); #Tdiv4;
-      command = NOOP; while (~commandReady) @(posedge clk); #Tdiv4;
-
-      
-      command = ACTIVATE; @(posedge clk); #Tdiv4;
-      command = NOOP; while (~(commandReady & prechargeReady)) @(posedge clk); #Tdiv4;
-      
-      command = WRITEA; #Tdiv4;
-      assert({DRAM_CKE, DRAM_CS_N, DRAM_RAS_N, DRAM_CAS_N, DRAM_WE_N, DRAM_ADDR[10]} == 6'b101001);
-      @(posedge clk); #Tdiv4;
-      command = NOOP; while (~commandReady) @(posedge clk); #Tdiv4;
-
-
-      command = AREFRESH; #Tdiv4; // current test assumes CKE never changes
-      assert({DRAM_CKE, DRAM_CS_N, DRAM_RAS_N, DRAM_CAS_N, DRAM_WE_N} == 5'b10001);
-      @(posedge clk); #Tdiv4;
-      command = NOOP; while (~commandReady) @(posedge clk); #Tdiv4;
-
-
-      command = ACTIVATE; @(posedge clk); #Tdiv4;
-      command = NOOP; while (~(commandReady & prechargeReady)) @(posedge clk); #Tdiv4;
-
-      command = PRECHARGE_BANK; #Tdiv4;
-      assert({DRAM_CKE, DRAM_CS_N, DRAM_RAS_N, DRAM_CAS_N, DRAM_WE_N, DRAM_ADDR[10]} == 6'b100100);
-      @(posedge clk); #Tdiv4;
-      command = NOOP; while (~commandReady) @(posedge clk); #Tdiv4;
-
-
-      command = ACTIVATE; @(posedge clk); #Tdiv4;
-      command = NOOP; while (~(commandReady & prechargeReady)) @(posedge clk); #Tdiv4;
-
-      command = PRECHARGE_ALL; #Tdiv4;
-      assert({DRAM_CKE, DRAM_CS_N, DRAM_RAS_N, DRAM_CAS_N, DRAM_WE_N, DRAM_ADDR[10]} == 6'b100101);
-      @(posedge clk); #Tdiv4;
-      command = NOOP; while (~commandReady) @(posedge clk); #Tdiv4;
-
-      // Check Timings //
-      // Reset
-      rst = 1; @(posedge clk); #Tdiv4;
-      rst = 0; #Tdiv4;
-      assert(~readValid);
-      // Activate a row
-      command = ACTIVATE;
-      {bankSel, addr} = 15'd9999; @(posedge clk); #Tdiv4;
-      command = NOOP; #Tdiv4;
-      repeat (2) begin assert(~readValid & ~commandReady); @(posedge clk); #Tdiv4; end
-      assert(~readValid & commandReady & rowOpen);
-
-      // Start a read
-      command = READ;
-      addr[9:0] = 10'd720; #Tdiv4;
-      assert(~readValid); @(posedge clk); #Tdiv4;
-      command = NOOP; #Tdiv4;
-      // CAS latency
-      repeat (2) begin assert(~readValid & ~writeReady); @(posedge clk); #Tdiv4; end
-      assert(readValid & ~writeReady); @(posedge clk); #Tdiv4;
-      assert(~readValid & ~writeReady); @(posedge clk); #Tdiv4;
-      
-      // Start a write
-      assert(writeReady);
-      command = WRITE;
-      writeMask = 2'b11;
-      wdata = 16'hDEAD;
-      addr[9:0] = 10'd299; #Tdiv4;
-      assert(DRAM_DQ == 16'hDEAD);
-      @(posedge clk); #Tdiv4;
-      command = NOOP;
-      repeat (`tDPL) begin assert(~prechargeReady); @(posedge clk); #Tdiv4; end
-      assert(prechargeReady & rowOpen);
-
-      // Precharge
-      command = READA;
-      addr[9:0] = 10'd185;
-      @(posedge clk); #Tdiv4;
-      command = NOOP;
-      repeat (`tRP) begin assert(~commandReady); @(posedge clk); #Tdiv4; end
-      assert(commandReady & ~rowOpen & readValid);
-
-
-      // Check row->row timing
-      // Activate a row
-      command = ACTIVATE;
-      {bankSel, addr} = 15'd4444; @(posedge clk); #Tdiv4;
-      command = NOOP; #Tdiv4;
-      repeat (2) begin assert(~readValid & ~commandReady); @(posedge clk); #Tdiv4; end
-      assert(~readValid & commandReady & rowOpen);
-
-      repeat (`tRAS - 2) begin assert(~prechargeReady & ~readValid & commandReady); @(posedge clk); #Tdiv4; end
-      
-      // Start a write with precharge
-      assert(writeReady);
-      command = WRITEA;
-      writeMask = 2'b11;
-      wdata = 16'hBEEF;
-      addr[9:0] = 10'd333; #Tdiv4;
-      assert(DRAM_DQ == 16'hBEEF);
-      @(posedge clk); #Tdiv4;
-      command = NOOP;
-      repeat (`tDPL) begin assert(~prechargeReady & ~commandReady); @(posedge clk); #Tdiv4; end
-      repeat (`tRP) begin assert(~prechargeReady & ~commandReady & ~rowOpen); @(posedge clk); #Tdiv4; end
-      assert(~rowOpen & ~prechargeReady & commandReady);
-
-      repeat (20) @(posedge clk);
       $stop;
    end
 endmodule
