@@ -24,7 +24,7 @@
  2 clocks after a read command, the data and address you requested will show up on rdata and raddr, and readValid will be true.
  */
 
-module SafeSDRAM (
+module SafeSDRAM import CommandEnumPackage::*; (
 	input logic clk, rst,
 
 	output logic commandReady, // send a command and then this will go back to true once the appropriate delay has occurred
@@ -277,6 +277,7 @@ endmodule
 
 module SafeSDRAM_tb ();
    logic clk, rst, commandReady, prechargeReady, writeReady, readValid, rowOpen;
+   import CommandEnumPackage::*;
    CommandEnum command;
    logic [1:0] writeMask, bankSel;
    logic [12:0] addr;
