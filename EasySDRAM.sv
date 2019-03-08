@@ -26,7 +26,7 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
         // Status outputs. You can ignore them, but they might be useful for optimizing
 	output logic busy, // tells you when the controller is busy with delays or refreshes, and isn't paying attention to the command fifo yet
 	output logic rowOpen, // tells you if a row is still open
-	output logic [:0] refreshCountdown, // number of cycles before the controller drops what it's doing to save some data that's about to decay away.
+	output logic [9:0] refreshCountdown, // number of cycles before the controller drops what it's doing to save some data that's about to decay away.
 
 
 	// SDRAM I/O, connect to top-level SDRAM I/O //
@@ -42,7 +42,7 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 	output logic DRAM_UDQM, // Upper DQ Mask, same as LDQM, but for the upper byte (DQ[15:8]) instead of the lower one
 	output logic DRAM_WE_N // WriteEnable, active-low
      );
-   localparam REFRESH_TIME = 10**6 * 64 / 8192 / CLOCK_PERIOD; // # of clocks in between each refresh (125MHz: 976)
+   localparam REFRESH_TIME = (10**6 * 64 / 8192 / CLOCK_PERIOD) - 1; // # of clocks in between each refresh (125MHz: 976) (-1 for off-by-1 safety)
 
    logic commandReady, prechargeReady, writeReady; // rowOpen and readValid are output ports
    CommandEnum command;
@@ -61,19 +61,26 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
    // 256x44 FIFO using 2 M10ks (2 M10ks = 64x256)
    logic empty, read;
    logic [43:0] wfifo, rfifo;
+   logic 	cmdWrite;
+   logic [14:0] cmdRow;
+   logic [9:0] 	cmdCol;
+   // Must be FWFT
    EasySDRAM_CmdFIFO cmdFIFO (.clock(clk), .sclr(rst), .rdreq(read), .wrreq(write),
 			      .empty, .full, .data(wfifo), .q(rfifo), .usedw(fifoUsage)); // usedwords
    assign wfifo = {isWrite, writeMask, address, writeData};
+   assign {cmdWrite, wMask, cmdRow, cmdCol, wdata} = rfifo;
 
    logic [13:0] waitCtr, nwaitCtr; // can handle 2^14=16384 > 100us*133MHz = 13300 cycles
    logic [9:0] refreshTimer, nrefreshTimer; // 1024 > REFRESH_TIME
    logic [2:0] writebackTimer, nwritebackTimer; // 8 > tDPL=2, keeps track of writeback delay before precharges
-   enum 	{RESET, BOOTA, BOOTB, BOOTC, BOOTD, IDLE} ps, ns, waitReturn, nwaitReturn;
+   enum 	{RESET, BOOTA, BOOTB, BOOTC, BOOTD, INIT_FIFO, WORK} ps, ns, waitReturn, nwaitReturn;
    always_comb begin
       command = NOOP;
       nrefreshTimer = refreshTimer - 10'd1; // keep ticking down
       nwaitCtr = 'X;
       read = 0;
+      busy = 1;
+      addr[9:0] = cmdCol;
       
       case (ps)
 	// Utility
@@ -104,22 +111,84 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 	BOOTC, BOOTD: begin
 	   if (commandReady) begin
 	      command = AREFRESH; // auto refresh
+	      nrefreshTimer = REFRESH_TIME;
 	      if (ps == BOOTC) ns = BOOTD;
 	      else ns = IDLE
 	   end else begin
 	      ns = ps;
 	   end
-	   nrefreshTimer = 2;
 	end
 
+/*
+	INIT_FIFO: begin // read the first command from the FIFO (refresh until command available)
+	   busy = 0;
+	   if (empty & commandReady) begin // refresh until we have a command
+	      commmand = AREFRESH;
+	      nrefreshTimer = REFRESH_TIME;
+	      ns = INIT_FIFO;
+	   end else if (~empty) begin
+	      read = 1; // read the command
+	      ns = WORK;
+	   end
+	end
+*/
 	// Normal operation
 	IDLE: begin
+	   // Can't do anything if we're not ready
 	   if (commandReady) begin
-	      if (empty & ~keepOpen) begin // might as well refresh
-		 command = AREFRESH;
-		 nrefreshTimer = REFRESH_TIME;
+	      busy = 0;
+	      if (empty & ~keepOpen) begin
+		 // Nothing to do, refresh rows
+		 if (~rowOpen) begin
+		    command = AREFRESH; // refresh
+		    nrefreshTimer = REFRESH_TIME;
+		 end else if (rowOpen & prechargeReady) begin
+		    command = PRECHARGE_ALL; // close the row so we can start refreshing
+		 end
 	      end else if (~empty) begin // stuff to do
-		 if (rowOpen) begin
+		 if ((cmdRow == raddr[24:10]) & rowOpen) begin
+		    // On the right row
+		    if (cmdWrite) begin // write requested
+		       if (refreshTimer > (4'd2 + `tDPL + `tRP)) begin
+			  // There's enough time to write(1) + WRITE->PRE(tDPL) + close(1) + PRE->REF(tRP)
+			  command = WRITE;
+			  read = 1; // next command
+		       end else if (refreshTimer > (4'd1 + `tDPL + `tRP)) begin
+			  // There's enough time to writea(1) + WRITE->PRE(tDPL) + PRE->REF(tRP)
+			  command = WRITEA;
+			  read = 1; // next command
+		       end else begin
+			  // no time, refresh ASAP
+			  command = PRECHARGE_ALL;
+		       end
+		    end else begin // read requested
+		       if (refreshTimer <= (4'd2 + `tRP)) begin
+			  // Not enough time to read(1) + close(1) + PRE->REF(tRP), so we need to refresh ASAP
+			  command = READA; // we can read and close at the same time
+		       end else begin
+			  command = READ;
+		       end
+		       read = 1; // we've completed the command. get a new one
+		    end
+		 end else if (rowOpen) begin
+		    // On the wrong row, close it and open the right one
+		    // Even if we're running out of time and have to refresh, we still have to close the row
+		    if (prechargeReady) command = PRECHARGE_ALL;
+		 end else begin
+		    // No row currently open, open the row
+		    if (refreshTimer > (4'd2 + `tRAS + `tRP)) begin
+		       // We have time to open(1) + ACT->PRE(tRAS) + close(1) + PRE->REF(tRP), so go for it
+		       command = ACTIVATE;
+		       {bankSel, addr} = cmdRow;
+		    end else begin
+		       // Not enough time to open and close a row, refresh instead
+		       command = AREFRESH; // refresh
+		       nrefreshTimer = REFRESH_TIME;		       
+		    end
+		 end // else: !if(rowOpen)
+
+		 /*
+		 if (rowOpen && ()) begin
 		    // Minimum write access is write(1) WRITE->PRE(tDPL) + close(1) + PRE->REF(tRP)
 		    if (refreshTimer > (4'd2 + `tDPL + `tRP)) begin
 		       command = WRITE; if (fifoOut[command] = write); // TODO
@@ -158,7 +227,22 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 		    end
 		    // ACT->REF
 		 end // else: !if(rowOpen)
-	      end // implies if (empty & keepOpen) command = NOOP
+		  */
+	      end else begin // empty & keepOpen
+		 // Nothing to do, but we were told to be ready, so only refresh if we have to
+		 if (rowOpen) begin
+		    if (refreshTimer <= (4'd2 + `tRP)) begin
+		       // Not enough time to wait4cmd(1) + close(1) + PRE->REF(tRP)
+		       PRECHARGE_ALL;
+		    end
+		 end else begin // no row open
+		    if (refreshTimer <= (4'd3 + `tRAS + `tRP)) begin
+		       // Not enough time to wait4cmd(1) + open(1) + ACT->PRE(tRAS) + close(1) + PRE->REF(tRP)
+		       command = AREFRESH; // refresh
+		       nrefreshTimer = REFRESH_TIME;	       
+		    end
+		 end
+	      end
 	   end // implies if (~commandReady) command = NOOP
 	end
       endcase
