@@ -161,6 +161,7 @@ module SafeSDRAM import CommandEnumPackage::*; (
       nrowOpen = rowOpen;
       DRAM_ADDR = 'X;
       DQ = 'X;
+      raddr0 = 'X;
       OE = 0;
       DRAM_DQM = 2'b11; // force the idle (SDRAM output disabled) state unless specifically required otherwise (read or write command)
       error = 0;

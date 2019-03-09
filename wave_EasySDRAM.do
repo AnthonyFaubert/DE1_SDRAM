@@ -1,5 +1,5 @@
 onerror {resume}
-quietly virtual function -install /EasySDRAM_tb -env /EasySDRAM_tb/#INITIAL#332(#ublk#232691922#332) { &{/EasySDRAM_tb/DRAM_ADDR[9], /EasySDRAM_tb/DRAM_ADDR[8], /EasySDRAM_tb/DRAM_ADDR[7], /EasySDRAM_tb/DRAM_ADDR[6], /EasySDRAM_tb/DRAM_ADDR[5], /EasySDRAM_tb/DRAM_ADDR[4], /EasySDRAM_tb/DRAM_ADDR[3], /EasySDRAM_tb/DRAM_ADDR[2], /EasySDRAM_tb/DRAM_ADDR[1], /EasySDRAM_tb/DRAM_ADDR[0] }} DADDR90
+quietly virtual function -install /EasySDRAM_tb -env /EasySDRAM_tb { &{/EasySDRAM_tb/DRAM_ADDR[9], /EasySDRAM_tb/DRAM_ADDR[8], /EasySDRAM_tb/DRAM_ADDR[7], /EasySDRAM_tb/DRAM_ADDR[6], /EasySDRAM_tb/DRAM_ADDR[5], /EasySDRAM_tb/DRAM_ADDR[4], /EasySDRAM_tb/DRAM_ADDR[3], /EasySDRAM_tb/DRAM_ADDR[2], /EasySDRAM_tb/DRAM_ADDR[1], /EasySDRAM_tb/DRAM_ADDR[0] }} DADDR90
 quietly WaveActivateNextPane {} 0
 add wave -noupdate /EasySDRAM_tb/CLOCK_PERIOD
 add wave -noupdate /EasySDRAM_tb/Tdiv4

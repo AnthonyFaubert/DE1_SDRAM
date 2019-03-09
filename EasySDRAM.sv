@@ -46,7 +46,7 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 	output logic DRAM_UDQM, // Upper DQ Mask, same as LDQM, but for the upper byte (DQ[15:8]) instead of the lower one
 	output logic DRAM_WE_N // WriteEnable, active-low
      );
-   localparam REFRESH_TIME = $floor((10**6 * 64 / 8192 / CLOCK_PERIOD) - 1); // # of clocks in between each refresh (125MHz: 976) (-1 for off-by-1 safety)
+   localparam integer REFRESH_TIME = (10**6 * 64 / 8192 / CLOCK_PERIOD) - 1; // # of clocks in between each refresh (125MHz: 976) (-1 for off-by-1 safety)
 
    logic commandReady, prechargeReady, writeReady; // rowOpen and readValid are output ports
    import CommandEnumPackage::*;
@@ -87,6 +87,9 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
       read = 0;
       busy = 1;
       addr[9:0] = cmdCol;
+      addr[12:10] = 'X;
+      bankSel = 'X;
+      nwaitReturn = RESET;
 
       // TODO: improve this and then maybe use it for behavior decisions?
       refreshCountdown = refreshTimer;
