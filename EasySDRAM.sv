@@ -83,13 +83,13 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
    always_comb begin
       command = NOOP;
       nrefreshTimer = refreshTimer - 10'd1; // keep ticking down
+      nwaitReturn = waitReturn;
       nwaitCtr = 'X;
       read = 0;
       busy = 1;
       addr[9:0] = cmdCol;
       addr[12:10] = 'X;
       bankSel = 'X;
-      nwaitReturn = RESET;
 
       // TODO: improve this and then maybe use it for behavior decisions?
       refreshCountdown = refreshTimer;
