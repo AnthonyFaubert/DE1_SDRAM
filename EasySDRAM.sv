@@ -3,6 +3,8 @@
 
 `include "SDRAM.svh"
 
+// TODO send a readout whenever a write happens. Add a write readout fifo that will be read out whenever SafeSDRAM's readValid is false.
+
 module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (default 125MHz) needed for refresh timing
 	input logic clk, rst, // max clock: 133MHz, recommend 100 or 125 for nice multiple of 50MHz
 
