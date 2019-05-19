@@ -69,11 +69,20 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
    logic 	cmdWrite;
    logic [14:0] cmdRow;
    logic [9:0] 	cmdCol;
-   logic [7:0] 	usedw;
+   //logic [7:0] 	usedw;
    // Must be FWFT
    EasySDRAM_CmdFIFO cmdFIFO (.clock(clk), .sclr(rst), .rdreq(read), .wrreq(write),
-			      .empty, .full, .data(wfifo), .q(rfifo), .usedw); // usedwords
-   assign fifoUsage = full ? 9'd256 : {1'b0, usedw}; // usedw becomes invalid while full is true
+			      .empty, .full, .data(wfifo), .q(rfifo), .usedw()); // usedwords
+   // IP cores produce broken usedw signals, create our own:
+   always_ff @(posedge clk) begin
+      if (rst) fifoUsage <= 9'd0;
+      else case ({read & ~empty, write & ~full}) // read,write
+	     2'b10: fifoUsage <= fifoUsage - 9'd1; // valid read
+	     2'b01: fifoUsage <= fifoUsage + 9'd1; // valid write
+	     default: fifoUsage <= fifoUsage; // both or neither
+	   endcase
+   end
+
    assign wfifo = {isWrite, writeMask, address, writeData};
    assign {cmdWrite, wMask, cmdRow, cmdCol, wdata} = rfifo;
 
