@@ -11,7 +11,7 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
         // FIFO interface
         input logic write, // write and full signals of the FIFO
         output logic full,
-        output logic [7:0] fifoUsage, // how many commands are pending in the FIFO (256 will cause full)
+        output logic [8:0] fifoUsage, // how many commands are pending in the FIFO (256 will cause full)
         // FIFO write word (seperated into its parts)
         input logic isWrite, // 1'b0: read from address, 1'b1: write writeData with writeMask to address
         input logic [24:0] address, // [24:10] is the row address, [9:0] is the column address. It costs 4-6 cycles to switch rows.
@@ -69,9 +69,11 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
    logic 	cmdWrite;
    logic [14:0] cmdRow;
    logic [9:0] 	cmdCol;
+   logic [7:0] 	usedw;
    // Must be FWFT
    EasySDRAM_CmdFIFO cmdFIFO (.clock(clk), .sclr(rst), .rdreq(read), .wrreq(write),
-			      .empty, .full, .data(wfifo), .q(rfifo), .usedw(fifoUsage)); // usedwords
+			      .empty, .full, .data(wfifo), .q(rfifo), .usedw); // usedwords
+   assign fifoUsage = full ? 9'd256 : {1'b0, usedw}; // usedw becomes invalid while full is true
    assign wfifo = {isWrite, writeMask, address, writeData};
    assign {cmdWrite, wMask, cmdRow, cmdCol, wdata} = rfifo;
 
@@ -291,7 +293,7 @@ endmodule // EasySDRAM
 module EasySDRAM_tb ();
    logic clk, rst, write, full, isWrite, readValid, keepOpen, busy, rowOpen;
    logic [9:0] refreshCountdown;
-   logic [7:0] fifoUsage;
+   logic [8:0] fifoUsage;
    logic [24:0] raddr, address;
    logic [1:0] 	writeMask;
    logic [15:0] writeData, rdata;
@@ -371,7 +373,7 @@ module EasySDRAM_tb ();
 
       // Wait for it to finish
       keepOpen = 1;
-      while (fifoUsage != 8'd0) @(posedge clk);
+      while (fifoUsage != 9'd0) @(posedge clk);
       // Watch it try to stay open
       repeat (dut.REFRESH_TIME + 20) @(posedge clk);
       #Tdiv4;
