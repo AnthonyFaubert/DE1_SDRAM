@@ -10,17 +10,19 @@ add wave -noupdate -radix unsigned -radixshowbase 0 /EasySDRAM_tb/lastRefresh
 add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/write
 add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/full
 add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/isWrite
-add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/readValid
 add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/keepOpen
 add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/busy
 add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/rowOpen
 add wave -noupdate -radix unsigned -radixshowbase 0 /EasySDRAM_tb/refreshCountdown
 add wave -noupdate -radix unsigned -radixshowbase 0 /EasySDRAM_tb/fifoUsage
+add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/readValid
 add wave -noupdate /EasySDRAM_tb/raddr
+add wave -noupdate -radix hexadecimal -radixshowbase 0 /EasySDRAM_tb/rdata
+add wave -noupdate /EasySDRAM_tb/rtag
 add wave -noupdate /EasySDRAM_tb/address
+add wave -noupdate /EasySDRAM_tb/tag
 add wave -noupdate -radix binary -radixshowbase 0 /EasySDRAM_tb/writeMask
 add wave -noupdate -radix hexadecimal -radixshowbase 0 /EasySDRAM_tb/writeData
-add wave -noupdate -radix hexadecimal -radixshowbase 0 /EasySDRAM_tb/rdata
 add wave -noupdate -radix hexadecimal -radixshowbase 0 /EasySDRAM_tb/DRAM_DQ
 add wave -noupdate -radix unsigned -radixshowbase 0 /EasySDRAM_tb/DRAM_BA
 add wave -noupdate {/EasySDRAM_tb/DRAM_ADDR[12]}
@@ -80,7 +82,7 @@ add wave -noupdate /EasySDRAM_tb/dut/nwaitReturn
 add wave -noupdate /EasySDRAM_tb/dut/REFRESH_TIME
 add wave -noupdate /EasySDRAM_tb/dut/CLOCK_PERIOD
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {124665900 ps} 0}
+WaveRestoreCursors {{Cursor 1} {123894852 ps} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 150
 configure wave -valuecolwidth 100
@@ -96,4 +98,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {124581269 ps} {124816789 ps}
+WaveRestoreZoom {123823490 ps} {124059010 ps}

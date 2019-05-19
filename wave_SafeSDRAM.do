@@ -12,8 +12,10 @@ add wave -noupdate -radix binary -radixshowbase 0 /SafeSDRAM_tb/writeMask
 add wave -noupdate -radix unsigned -radixshowbase 0 /SafeSDRAM_tb/bankSel
 add wave -noupdate -radix unsigned -radixshowbase 0 /SafeSDRAM_tb/addr
 add wave -noupdate -radix hexadecimal -radixshowbase 0 /SafeSDRAM_tb/wdata
+add wave -noupdate -radix unsigned -radixshowbase 0 /SafeSDRAM_tb/tagIn
 add wave -noupdate -radix hexadecimal -radixshowbase 0 /SafeSDRAM_tb/rdata
 add wave -noupdate -radix unsigned -radixshowbase 0 /SafeSDRAM_tb/raddr
+add wave -noupdate -radix unsigned -radixshowbase 0 /SafeSDRAM_tb/rtag
 add wave -noupdate -radix hexadecimal -radixshowbase 0 /SafeSDRAM_tb/DRAM_DQ
 add wave -noupdate -radix unsigned -radixshowbase 0 /SafeSDRAM_tb/DRAM_ADDR
 add wave -noupdate -radix unsigned -radixshowbase 0 /SafeSDRAM_tb/DRAM_BA
@@ -72,7 +74,7 @@ add wave -noupdate /SafeSDRAM_tb/dut/CAS
 add wave -noupdate /SafeSDRAM_tb/dut/WE
 add wave -noupdate -radix binary /SafeSDRAM_tb/dut/MODE_REG_VAL
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {604 ps} 0}
+WaveRestoreCursors {{Cursor 1} {107767 ps} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 150
 configure wave -valuecolwidth 100
@@ -88,4 +90,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {494 ps} {610 ps}
+WaveRestoreZoom {107750 ps} {107866 ps}

@@ -18,10 +18,14 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
         input logic [1:0] writeMask, // 2'b11: write data[15:0], 2'b10: write data[15:8], 2'b01: write data[7:0], 2'b00: invalid
         input logic [15:0] writeData,
 
+        // Tag to pass alongside readout address to identify what subsystem requested it
+        input logic [35:0] tag,
+
         // Read port
 	output logic readValid, // ignore raddr and rdata if this is false, otherwise they carry a readout
 	output logic [24:0] raddr, // tells you the address the data was read from
 	output logic [15:0] rdata, // tells you the data that was at the address
+	output logic [35:0] rtag, // reminds you what tag you gave it when you asked for this data
 
         // This signals to the controller to keep the row open for as long as possible instead of refreshing when the command FIFO becomes empty.
         // Refreshes can cost up to 1(close cmd) + 2(close delay) + 1(refresh cmd) + 8(refresh delay) + 1(open cmd) + 2(open delay) = 15 cycles! So don't keep this true unless you're sure you'll have data soon
@@ -54,18 +58,19 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
    logic [1:0] wMask, bankSel;
    logic [12:0] addr;
    logic [15:0] wdata;
+   logic [35:0] cmdTag;
    // raddr and rdata are output ports
    SafeSDRAM safeDRAM (.clk, .rst, .command, 
 		       .commandReady, .prechargeReady, .writeReady, .rowOpen,
-		       .addr, .bankSel, .writeMask(wMask), .wdata,
-		       .readValid, .raddr, .rdata,
+		       .addr, .bankSel, .writeMask(wMask), .wdata, .tagIn(cmdTag),
+		       .readValid, .raddr, .rdata, .rtag,
 		       .DRAM_DQ, .DRAM_ADDR, .DRAM_BA, .DRAM_CAS_N, .DRAM_CKE,
 		       .DRAM_CLK, .DRAM_CS_N, .DRAM_LDQM, .DRAM_RAS_N, .DRAM_UDQM, .DRAM_WE_N
 		       );
 
    // 256x44 FIFO using 2 M10ks (2 M10ks = 64x256)
    logic empty, read;
-   logic [43:0] wfifo, rfifo;
+   logic [79:0] wfifo, rfifo;
    logic 	cmdWrite;
    logic [14:0] cmdRow;
    logic [9:0] 	cmdCol;
@@ -83,14 +88,14 @@ module EasySDRAM #(parameter CLOCK_PERIOD = 8) ( // period in nanoseconds, (defa
 	   endcase
    end
 
-   assign wfifo = {isWrite, writeMask, address, writeData};
-   assign {cmdWrite, wMask, cmdRow, cmdCol, wdata} = rfifo;
+   assign wfifo = {tag, isWrite, writeMask, address, writeData};
+   assign {cmdTag, cmdWrite, wMask, cmdRow, cmdCol, wdata} = rfifo;
 
    logic [13:0] waitCtr, nwaitCtr; // can handle 2^14=16384 > 100us*133MHz = 13300 cycles
    logic [10:0] refreshTimer, nrefreshTimer; // 2048 > REFRESH_TIME
    // pretty sure the writeback timer is handled by prechargeReady in SafeSDRAM, TODO remove this?
    //logic [2:0] writebackTimer, nwritebackTimer; // 8 > tDPL=2, keeps track of writeback delay before precharges
-   enum 	{RESET, BOOTA, BOOTB, BOOTC, BOOTD, WORK, WAIT} ps, ns, waitReturn, nwaitReturn;
+   enum {RESET, BOOTA, BOOTB, BOOTC, BOOTD, WORK, WAIT} ps, ns, waitReturn, nwaitReturn;
    always_comb begin
       command = NOOP;
       nrefreshTimer = refreshTimer - 10'd1; // keep ticking down
@@ -306,6 +311,7 @@ module EasySDRAM_tb ();
    logic [24:0] raddr, address;
    logic [1:0] 	writeMask;
    logic [15:0] writeData, rdata;
+   logic [35:0] tag, rtag;
 
    tri [15:0] DRAM_DQ;
    logic [12:0] DRAM_ADDR;
@@ -341,6 +347,12 @@ module EasySDRAM_tb ();
 	    lastRefresh = clkCtr;
 	 end
       end
+   end
+
+   // Setting tag as a clock counter ensures unique tags for easy identification in testing
+   always @(posedge clk) begin
+      if (rst) tag <= '0;
+      else tag <= tag + 36'd1;
    end
 
 

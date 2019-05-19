@@ -37,6 +37,9 @@ module SafeSDRAM import CommandEnumPackage::*; (
         // row (13-bit) or column (10-bit) address (row during ACTIVATE, col during reads/writes)
 	input logic [12:0] addr,
 
+        // user-defined identifier that is relayed out with each valid readout
+	input logic [35:0] tagIn,
+
 	output logic writeReady, // ready to accept a write commmand (commandReady must also be true)
 	input logic [1:0] writeMask, // the write mask for the current write, if any. if writeMask=2'b11, then both bytes will be written (2'b10=>wdata[15:8] written)
 	input logic [15:0] wdata,
@@ -45,6 +48,7 @@ module SafeSDRAM import CommandEnumPackage::*; (
 	output logic readValid,
 	output logic [24:0] raddr,
 	output logic [15:0] rdata,
+	output logic [35:0] rtag, // tagIn delayed to match up with the raddr and rdata it's associated with
 		       
 	// SDRAM I/O, connect to top-level SDRAM I/O //
 	inout [15:0] DRAM_DQ, // Data input/output port. Each data word is 16 bits = 2 bytes
@@ -105,6 +109,7 @@ module SafeSDRAM import CommandEnumPackage::*; (
    // For synchronising with CAS latency of 2 (raddr0/rvalid0 are the combinational shift inputs)
    logic rvalid4, rvalid2, rvalid1, rvalid0; // readValid output is rvalid3
    logic [9:0] raddr2, raddr1, raddr0;
+   logic [35:0] rtag2, rtag1, rtag0;
 
    // flip-flop holding whether or the previous clock was a valid write command, or something else
    logic lastCmdWasValidWrite, nlastCmdWasValidWrite;
@@ -130,6 +135,7 @@ module SafeSDRAM import CommandEnumPackage::*; (
       currentBank <= nextBank;
       currentRow <= nextRow;
       {raddr[9:0], raddr2, raddr1} <= {raddr2, raddr1, raddr0};
+      {rtag, rtag2, rtag1} <= {rtag2, rtag1, rtag0};
 
       // Resettable registers
       if (rst) begin
@@ -162,6 +168,7 @@ module SafeSDRAM import CommandEnumPackage::*; (
       DRAM_ADDR = 'X;
       DQ = 'X;
       raddr0 = 'X;
+      rtag0 = 'X;
       OE = 0;
       DRAM_DQM = 2'b11; // force the idle (SDRAM output disabled) state unless specifically required otherwise (read or write command)
       error = 0;
@@ -201,11 +208,12 @@ module SafeSDRAM import CommandEnumPackage::*; (
 		    end else begin
 		       CAS = 0; // disable the write
 		       error = 1; // write wasn't ready, you may have tried to dual-drive the DQ bus
-		    end	      
+		    end
 		 end else begin // must be a READ or READA, so save read address and remind you of it later when the data comes out
 		    rvalid0 = 1;
 		    DRAM_DQM = 2'b00; // enable reading both bytes
 		    raddr0 = addr[9:0];
+		    rtag0 = tagIn;
 		 end
 		 DRAM_ADDR[10] = (command == READA || command == WRITEA);
 		 DRAM_ADDR[9:0] = addr[9:0];
@@ -288,6 +296,7 @@ module SafeSDRAM_tb ();
    logic [12:0] addr;
    logic [15:0] wdata, rdata;
    logic [24:0] raddr;
+   logic [35:0] tagIn, rtag;
    	       
    tri [15:0] DRAM_DQ;
    logic [12:0] DRAM_ADDR;
@@ -303,6 +312,12 @@ module SafeSDRAM_tb ();
       forever #(CLOCK_PERIOD/2) clk <= ~clk;
    end
    localparam Tdiv4 = CLOCK_PERIOD / 4;
+
+   // Setting tag as a clock counter ensures unique tags for easy identification in testing
+   always @(posedge clk) begin
+      if (rst) tagIn <= '0;
+      else tagIn <= tagIn + 36'd1;
+   end
 
 
    int i;
